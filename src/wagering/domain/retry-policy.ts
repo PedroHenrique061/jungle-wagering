@@ -17,8 +17,8 @@ export function nextAttemptAt(policy: BackoffPolicy, attempts: number, now: Date
 }
 
 /**
- * PENDING_REFERENCE: 2s, 4s, 8s … teto de 5 min, 12 tentativas ≈ 25 min no total.
- * Justificativa: provedores costumam reentregar a referência em segundos; 25 min
+ * PENDING_REFERENCE: 2s, 4s, 8s … teto de 5 min, 12 verificações ≈ 24 min no total.
+ * Justificativa: provedores costumam reentregar a referência em segundos; ~24 min
  * cobre indisponibilidades curtas do provedor sem deixar a rodada aberta por horas.
  */
 export const REFERENCE_RETRY_POLICY: BackoffPolicy = {
