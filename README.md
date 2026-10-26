@@ -28,7 +28,7 @@ As decisões de projeto, os trade-offs e as limitações estão em **[ARCHITECTU
 bun install
 cp .env.example .env
 
-bun run infra:up            # PostgreSQL + LocalStack (cria as filas FIFO e a DLQ)
+bun run infra:up            # PostgreSQL + LocalStack; espera os healthchecks (filas FIFO e DLQ criadas)
 bun run db:migrate          # aplica as migrations
 
 bun run test                # unitários
@@ -44,7 +44,7 @@ Para rodar uma única instância fora do Docker (com hot reload): `bun run dev`.
 
 | Comando | O que faz |
 | --- | --- |
-| `bun run infra:up` / `infra:down` | Sobe/derruba PostgreSQL e LocalStack (`down` apaga os volumes) |
+| `bun run infra:up` / `infra:down` | Sobe PostgreSQL e LocalStack e **espera ficarem saudáveis** (`--wait`) / derruba tudo, inclusive as réplicas, e apaga os volumes |
 | `bun run db:migrate` | Aplica as migrations pendentes |
 | `bun run db:rollback` | Desfaz a última migration |
 | `bun run db:status` | Lista migrations executadas e pendentes |

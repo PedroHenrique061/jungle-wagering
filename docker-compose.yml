@@ -25,7 +25,7 @@ services:
     volumes:
       - ./infra/localstack/init-sqs.sh:/etc/localstack/init/ready.d/init-sqs.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name wager-transactions.fifo"]
+      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name wagering-events.fifo"]
       interval: 3s
       timeout: 5s
       retries: 30
