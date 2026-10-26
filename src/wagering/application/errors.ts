@@ -51,3 +51,71 @@ export class PermanentInfrastructureError extends ApplicationError {
     super(message, { cause });
   }
 }
+
+// ---------------------------------------------------------------- erros de requisição/negócio da aplicação
+
+/** Requisição malformada (header ausente, corpo inválido). HTTP 400; na fila: erro de negócio (ack). */
+export class InvalidRequestError extends ApplicationError {
+  readonly code = "INVALID_REQUEST";
+  readonly transient = false;
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/** Mesma Idempotency-Key com payload diferente: conflito, não replay. HTTP 409. */
+export class IdempotencyConflictError extends ApplicationError {
+  readonly code = "IDEMPOTENCY_KEY_CONFLICT";
+  readonly transient = false;
+  constructor(
+    public readonly providerId: string,
+    public readonly idempotencyKey: string,
+    public readonly existingTransactionId: string,
+  ) {
+    super(`Idempotency-Key "${idempotencyKey}" was already used with a different payload`);
+  }
+}
+
+/** Mesmo (provider, externalTransactionId) já registrado sob outra Idempotency-Key. HTTP 409. */
+export class ExternalTransactionConflictError extends ApplicationError {
+  readonly code = "EXTERNAL_TRANSACTION_ID_CONFLICT";
+  readonly transient = false;
+  constructor(
+    public readonly providerId: string,
+    public readonly externalTransactionId: string,
+    public readonly existingTransactionId: string,
+  ) {
+    super(`externalTransactionId "${externalTransactionId}" was already submitted with another Idempotency-Key`);
+  }
+}
+
+export class WalletAlreadyExistsError extends ApplicationError {
+  readonly code = "WALLET_ALREADY_EXISTS";
+  readonly transient = false;
+  constructor(playerId: string, currency: string) {
+    super(`Player ${playerId} already has a ${currency} wallet`);
+  }
+}
+
+export class ResourceNotFoundError extends ApplicationError {
+  readonly code = "RESOURCE_NOT_FOUND";
+  readonly transient = false;
+  constructor(resource: string, id: string) {
+    super(`${resource} ${id} not found`);
+  }
+}
+
+/**
+ * Regra de negócio que impede até de registrar a transação (ex.: wallet inexistente — a FK não
+ * permitiria persistir). HTTP 422 com failureCode; na fila: erro de negócio (ack).
+ */
+export class UnprocessableTransactionError extends ApplicationError {
+  readonly code = "UNPROCESSABLE_TRANSACTION";
+  readonly transient = false;
+  constructor(
+    public readonly failureCode: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}

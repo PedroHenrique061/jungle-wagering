@@ -30,20 +30,44 @@ services:
       timeout: 5s
       retries: 30
 
-  # Três instâncias da aplicação para validar correção com múltiplos processos.
-  app:
+  # Aplica as migrations uma vez antes das instâncias subirem.
+  migrate:
     build: .
-    env_file: .env.example
+    command: ["bun", "run", "scripts/migrate.ts", "up"]
     environment:
       DATABASE_URL: postgres://wagering:wagering@postgres:5432/wagering
+    depends_on:
+      postgres: { condition: service_healthy }
+    profiles: ["app"]
+
+  # Três instâncias da aplicação (HTTP + consumer + outbox publisher + worker) sobre o mesmo banco e fila.
+  app:
+    build: .
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgres://wagering:wagering@postgres:5432/wagering
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
       SQS_ENDPOINT: http://localstack:4566
+      SQS_TRANSACTIONS_QUEUE_URL: http://localstack:4566/000000000000/wager-transactions.fifo
+      SQS_EVENTS_QUEUE_URL: http://localstack:4566/000000000000/wagering-events.fifo
+      LOG_LEVEL: info
     depends_on:
       postgres: { condition: service_healthy }
       localstack: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     deploy:
       replicas: 3
     ports:
       - "3000-3002:3000"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    profiles: ["app"]
 
 volumes:
   pgdata:

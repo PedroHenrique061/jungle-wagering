@@ -16,7 +16,9 @@
     "db:migrate": "bun run scripts/migrate.ts up",
     "db:rollback": "bun run scripts/migrate.ts down",
     "db:status": "bun run scripts/migrate.ts status",
-    "db:reset": "bun run scripts/migrate.ts reset"
+    "db:reset": "bun run scripts/migrate.ts reset",
+    "app:up": "docker compose --profile app up -d --build",
+    "app:down": "docker compose --profile app down"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3",
