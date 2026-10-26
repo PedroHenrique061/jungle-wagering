@@ -4,11 +4,6 @@ import { Migration20261026000001_initial_schema } from "./migrations/Migration20
 import { Migration20261026000002_integrity_triggers } from "./migrations/Migration20261026000002_integrity_triggers";
 import { ALL_SCHEMAS } from "./records";
 
-/**
- * Migrations listadas explicitamente (migrationsList): não dependem de glob no
- * sistema de arquivos e funcionam igual com Bun, em testes e dentro do container.
- * Cada migration roda numa transação; `allOrNothing` desfaz o lote inteiro se uma falhar.
- */
 export const MIGRATIONS = [
   { name: "Migration20261026000001_initial_schema", class: Migration20261026000001_initial_schema },
   { name: "Migration20261026000002_integrity_triggers", class: Migration20261026000002_integrity_triggers },

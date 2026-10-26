@@ -3,14 +3,6 @@ import { loadConfig } from "@/config";
 import { createSqsClient } from "@/infrastructure/sqs/sqs-client";
 import { uuidv7 } from "@/shared/domain/uuid";
 
-/**
- * Publica uma WagerTransactionRequested na fila de entrada (demonstração/manual).
- *
- *   bun run sqs:send <walletId> <playerId> <kind> <amount> [referenceExternalTransactionId] [externalTransactionId]
- *
- * Exemplo:
- *   bun run sqs:send $WALLET player-3 BET 10.00
- */
 const [walletId, playerId, kind = "BET", amount = "10.00", reference, externalIdArg] = process.argv.slice(2);
 if (!walletId || !playerId) {
   console.error("usage: bun run sqs:send <walletId> <playerId> <kind> <amount> [referenceExternalTransactionId] [externalTransactionId]");

@@ -1,14 +1,5 @@
 import { EntitySchema } from "@mikro-orm/core";
 
-/**
- * Registros de persistência (linhas), mapeados com EntitySchema — sem decorators e sem
- * vazar o ORM para o domínio. A conversão registro ↔ agregado fica em mappers.ts e usa
- * as factories `rehydrate` do domínio. O DDL real está nas migrations (escritas à mão);
- * estes schemas servem para hidratação e para a API do EntityManager.
- *
- * Colunas NUMERIC são lidas como string (runtimeType string) e viram Money no mapper.
- */
-
 export class WalletRecord {
   id!: string;
   playerId!: string;
@@ -91,7 +82,6 @@ export const WagerTransactionSchema = new EntitySchema<WagerTransactionRecord>({
 
 export class LedgerEntryRecord {
   id!: string;
-  /** bigint identity, lido como string; base do cursor de paginação. */
   seq!: string;
   walletId!: string;
   transactionId!: string;

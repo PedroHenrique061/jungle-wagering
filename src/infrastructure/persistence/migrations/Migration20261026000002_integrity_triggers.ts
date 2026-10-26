@@ -1,22 +1,7 @@
 import { Migration } from "@mikro-orm/migrations";
 
-/**
- * Invariantes que CHECK não consegue expressar (dependem de outras linhas ou do estado anterior):
- *
- * 1. Ledger append-only: UPDATE, DELETE e TRUNCATE são proibidos.
- * 2. Ledger encadeado: balance_before de um lançamento = balance_after do anterior da mesma wallet.
- * 3. wallet.balance == último balance_after do ledger (ou 0 sem lançamentos),
- *    verificado no COMMIT (constraint trigger DEFERRED) — vale para qualquer código, inclusive SQL manual.
- * 4. Wallet: id/player/moeda/created_at imutáveis; version incrementa em exatamente 1
- *    quando o saldo muda e permanece igual quando não muda; DELETE proibido.
- * 5. WagerTransaction: campos de negócio imutáveis; estado terminal não muda; DELETE proibido.
- * 6. Outbox: envelope imutável; publicação não é desfeita; DELETE proibido (retenção é decisão operacional).
- *
- * Todos lançam SQLSTATE de integridade (23xxx) para serem tratados como erro permanente, não transitório.
- */
 export class Migration20261026000002_integrity_triggers extends Migration {
   override async up(): Promise<void> {
-    // ---------------------------------------------------------------- ledger append-only
     this.addSql(`
       CREATE FUNCTION ledger_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN
@@ -36,7 +21,6 @@ export class Migration20261026000002_integrity_triggers extends Migration {
         FOR EACH STATEMENT EXECUTE FUNCTION ledger_append_only();
     `);
 
-    // ---------------------------------------------------------------- ledger encadeado
     this.addSql(`
       CREATE FUNCTION ledger_chain_check() RETURNS trigger LANGUAGE plpgsql AS $$
       DECLARE
@@ -70,7 +54,6 @@ export class Migration20261026000002_integrity_triggers extends Migration {
         FOR EACH ROW EXECUTE FUNCTION ledger_chain_check();
     `);
 
-    // ---------------------------------------------------------------- saldo materializado == ledger (no COMMIT)
     this.addSql(`
       CREATE FUNCTION wallet_ledger_consistency_check() RETURNS trigger LANGUAGE plpgsql AS $$
       DECLARE
@@ -112,7 +95,6 @@ export class Migration20261026000002_integrity_triggers extends Migration {
         FOR EACH ROW EXECUTE FUNCTION wallet_ledger_consistency_check();
     `);
 
-    // ---------------------------------------------------------------- wallet guard
     this.addSql(`
       CREATE FUNCTION wallet_guard() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN
@@ -142,7 +124,6 @@ export class Migration20261026000002_integrity_triggers extends Migration {
         FOR EACH ROW EXECUTE FUNCTION wallet_guard();
     `);
 
-    // ---------------------------------------------------------------- wager transaction guard
     this.addSql(`
       CREATE FUNCTION wager_tx_guard() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN
@@ -173,7 +154,6 @@ export class Migration20261026000002_integrity_triggers extends Migration {
         FOR EACH ROW EXECUTE FUNCTION wager_tx_guard();
     `);
 
-    // ---------------------------------------------------------------- outbox guard
     this.addSql(`
       CREATE FUNCTION outbox_guard() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN

@@ -1,7 +1,3 @@
-/**
- * Erro de domínio: violação de regra de negócio ou de invariante.
- * `code` é estável e legível por máquina (vai para failureCode / respostas HTTP).
- */
 export abstract class DomainError extends Error {
   abstract readonly code: string;
 

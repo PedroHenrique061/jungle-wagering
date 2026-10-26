@@ -11,11 +11,6 @@ import {
   type WagerResponse,
 } from "./support/load";
 
-/**
- * Concorrência com paralelismo real: 3 instâncias da aplicação (cada uma com o seu pool de
- * conexões) sobre o MESMO PostgreSQL, recebendo requisições HTTP simultâneas.
- * Nada de mocks sequenciais — as disputas acontecem no banco, nos locks de linha.
- */
 let db: TestDatabase;
 let apps: TestApp[] = [];
 let urls: string[] = [];
@@ -34,8 +29,8 @@ afterAll(async () => {
 const spread = <T>(n: number, fn: (i: number, url: string) => Promise<T>) =>
   Promise.all(Array.from({ length: n }, (_, i) => fn(i, urls[i % urls.length]!)));
 
-describe("seção 13 — concorrência", () => {
-  test("1. a mesma aposta enviada 50 vezes em paralelo → um único débito", async () => {
+describe("seção 13 - concorrência", () => {
+  test("1. a mesma aposta enviada 50 vezes em paralelo -> um único débito", async () => {
     const wallet = await createWallet(urls[0]!, "1000.00");
     const bet = wagerBody(wallet, "BET", "25.00");
 
@@ -64,7 +59,6 @@ describe("seção 13 — concorrência", () => {
       const outcomes = [ra, rb].map((r) => `${r.status}:${r.body.status}:${r.body.failureCode ?? ""}`).sort();
       expect(outcomes).toEqual(["201:PROCESSED:", "422:REJECTED:INSUFFICIENT_FUNDS"]);
 
-      // Retries do provedor não duplicam o débito e devolvem o resultado original.
       const [again1, again2] = await Promise.all([postWager(urls[2]!, a), postWager(urls[1]!, b)]);
       expect(again1.body.transactionId).toBe(ra.body.transactionId);
       expect(again2.body.transactionId).toBe(rb.body.transactionId);
@@ -77,7 +71,7 @@ describe("seção 13 — concorrência", () => {
     }
   });
 
-  test("hot wallet: 200 apostas de 1.00 simultâneas sobre 100.00 → exatamente 100 aceitas, saldo nunca negativo", async () => {
+  test("hot wallet: 200 apostas de 1.00 simultâneas sobre 100.00 -> exatamente 100 aceitas, saldo nunca negativo", async () => {
     const wallet = await createWallet(urls[0]!, "100.00");
     const responses = await spread(200, (_i, url) => postWager(url, wagerBody(wallet, "BET", "1.00")));
 
@@ -90,7 +84,7 @@ describe("seção 13 — concorrência", () => {
     expectLedgerConsistent(inv);
   });
 
-  test("3. wallets distintas em paralelo: 25 wallets × 8 apostas simultâneas", async () => {
+  test("3. wallets distintas em paralelo: 25 wallets x 8 apostas simultâneas", async () => {
     const wallets = await Promise.all(Array.from({ length: 25 }, () => createWallet(urls[0]!, "100.00")));
     const jobs = wallets.flatMap((w) => Array.from({ length: 8 }, () => wagerBody(w, "BET", "2.50")));
     const responses = await Promise.all(jobs.map((job, i) => postWager(urls[i % 3]!, job)));
@@ -103,7 +97,7 @@ describe("seção 13 — concorrência", () => {
     }
   });
 
-  test("REFUND e ROLLBACK simultâneos da mesma BET → exatamente uma reversão (20 rodadas)", async () => {
+  test("REFUND e ROLLBACK simultâneos da mesma BET -> exatamente uma reversão (20 rodadas)", async () => {
     for (let round = 0; round < 20; round++) {
       const wallet = await createWallet(urls[0]!, "100.00");
       const betId = `bet-${uuidv7()}`;
@@ -123,8 +117,6 @@ describe("seção 13 — concorrência", () => {
   });
 
   test("BET, WIN e ROLLBACK do WIN disputando a mesma wallet com saldo justo", async () => {
-    // Saldo 50: WIN de 100 e um ROLLBACK desse WIN correm junto com apostas que consomem o prêmio.
-    // Seja qual for a ordem, nenhum saldo fica negativo e o ledger fecha.
     for (let round = 0; round < 10; round++) {
       const wallet = await createWallet(urls[0]!, "50.00");
       const winId = `win-${uuidv7()}`;

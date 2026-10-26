@@ -6,17 +6,9 @@ import { OutboxRelay } from "@/wagering/application/outbox-relay";
 import { ProcessPendingReferences } from "@/wagering/application/process-pending-references";
 import { WagerTransactionConsumer } from "../sqs/wager-transaction-consumer";
 
-const SHUTDOWN_TIMEOUT_MS = 20_000; // < stop_grace_period (30s) do Compose
+const SHUTDOWN_TIMEOUT_MS = 20_000;
 const OUTBOX_STATE_EVERY_MS = 5_000;
 
-/**
- * Sobe os workers de background desta instância conforme `config.roles` e os para no shutdown.
- *
- * Nest chama `beforeApplicationShutdown` de todos os providers ANTES de `onApplicationShutdown`
- * (onde o ORM e o cliente SQS são fechados): os workers drenam com as conexões ainda abertas.
- * Ordem de parada: consumidor (para de aceitar trabalho) → worker de referências → publisher
- * (último, para publicar o que os outros acabaram de commitar).
- */
 @Injectable()
 export class WorkersLifecycle implements OnApplicationBootstrap, BeforeApplicationShutdown {
   private readonly loops: { name: string; loop: PollingLoop }[] = [];

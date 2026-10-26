@@ -12,11 +12,8 @@ import {
 
 export interface SettlementContext {
   transaction: WagerTransaction;
-  /** Wallet já carregada SOB LOCK pelo use case (a unidade de concorrência). */
   wallet: Wallet;
-  /** Resolvida por (providerId, referenceExternalTransactionId); undefined se ainda não chegou. */
   reference?: WagerTransaction;
-  /** true se a referência já é alvo de um REFUND/ROLLBACK PROCESSED. */
   referenceAlreadyReversed: boolean;
   now: Date;
   policy?: BackoffPolicy;
@@ -27,15 +24,6 @@ export type SettlementOutcome =
   | { type: "REJECTED"; failureCode: FailureCode }
   | { type: "PENDING_REFERENCE"; attempts: number; nextCheckAt: Date };
 
-/**
- * Serviço de domínio puro: decide e aplica o efeito de uma transação sobre a wallet.
- * Não faz I/O. Muta `transaction` e `wallet`; o chamador persiste tudo numa única transação SQL.
- *
- * Ordem de validação (a primeira que falhar define o failureCode):
- *  1. wallet pertence ao player e usa a mesma moeda
- *  2. referência (quando houver): existência → estado → escopo → kind → valor → reversão única
- *  3. efeito no saldo (débito sem saldo → INSUFFICIENT_FUNDS ou REVERSAL_INSUFFICIENT_FUNDS)
- */
 export class WagerSettlement {
   static settle(ctx: SettlementContext): SettlementOutcome {
     const { transaction: tx, wallet, now } = ctx;
@@ -54,7 +42,6 @@ export class WagerSettlement {
 
     const { reference } = ctx;
     if (tx.referenceExternalTransactionId) {
-      // Referência ainda não chegou, ou chegou mas também está aguardando/pendente.
       const waiting =
         !reference ||
         reference.status === WagerTransactionStatus.Pending ||
@@ -123,5 +110,4 @@ export class WagerSettlement {
   }
 }
 
-/** Kinds de reversão (para o índice único de "reversão única por referência"). */
 export const REVERSAL_KINDS = [WagerTransactionKind.Refund, WagerTransactionKind.Rollback] as const;

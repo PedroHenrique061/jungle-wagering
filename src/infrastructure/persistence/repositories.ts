@@ -39,13 +39,9 @@ import {
 } from "./records";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** Ids inválidos nunca chegam ao banco (evita erro 22P02 tratado como falha de infraestrutura). */
 const isUuid = (value: string) => UUID.test(value);
 
-/** Leituras sempre frescas: não reutilizamos o identity map entre statements da mesma transação. */
 const FRESH = { disableIdentityMap: true } as const;
-
-// ---------------------------------------------------------------- Wallet
 
 export class MikroOrmWalletRepository implements WalletRepository {
   constructor(private readonly em: EntityManager) {}
@@ -75,8 +71,6 @@ export class MikroOrmWalletRepository implements WalletRepository {
     if (affected !== 1) throw new ConcurrencyConflictError("wallet", wallet.id);
   }
 }
-
-// ---------------------------------------------------------------- WagerTransaction
 
 export class MikroOrmWagerTransactionRepository implements WagerTransactionRepository {
   constructor(private readonly em: EntityManager) {}
@@ -142,7 +136,7 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
   }
 
   async wakeDependents(providerId: string, externalTransactionId: string, now: Date): Promise<number> {
-    // SKIP LOCKED: se o worker já está com a dependente, ela será reavaliada por ele.
+    // SKIP LOCKED: se o worker já pegou a dependente, ele mesmo reavalia
     const rows = await this.em.execute<{ id: string }[]>(
       `UPDATE wager_transactions SET next_reference_check_at = ?, updated_at = ?
         WHERE id IN (
@@ -156,8 +150,6 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
     return rows.length;
   }
 }
-
-// ---------------------------------------------------------------- Ledger
 
 export class MikroOrmLedgerRepository implements LedgerRepository {
   constructor(private readonly em: EntityManager) {}
@@ -197,14 +189,11 @@ export class MikroOrmLedgerRepository implements LedgerRepository {
   }
 }
 
-// ---------------------------------------------------------------- Inbox
-
 export class MikroOrmInboxRepository implements InboxRepository {
   constructor(private readonly em: EntityManager) {}
 
   async tryReceive(message: InboxMessage, transactionId?: string): Promise<boolean> {
     const r = inboxToRecord(message, transactionId);
-    // Concorrência: a 2ª inserção espera o COMMIT da 1ª no índice único e então vira DO NOTHING.
     const rows = await this.em.execute<{ message_id: string }[]>(
       `INSERT INTO inbox_messages (consumer_name, message_id, payload_hash, received_at, processed_at, transaction_id)
        VALUES (?, ?, ?, ?, ?, ?)
@@ -215,8 +204,6 @@ export class MikroOrmInboxRepository implements InboxRepository {
     return rows.length === 1;
   }
 }
-
-// ---------------------------------------------------------------- Outbox
 
 interface OutboxRow {
   id: string;
@@ -271,9 +258,8 @@ export class MikroOrmOutboxRepository implements OutboxRepository {
   }
 
   async markPublished(message: OutboxMessage, _workerId: string): Promise<void> {
-    // Sem filtro por locked_by: se o lease expirou e outro worker também publicou,
-    // o primeiro a marcar vence e o consumidor deduplica pelo eventId.
     await this.em.execute(
+      // sem filtrar por locked_by: se dois publishers enviaram, o primeiro a marcar vence e o consumidor deduplica pelo eventId
       `UPDATE outbox_messages SET published_at = ?, locked_by = NULL, locked_until = NULL, last_error = NULL
         WHERE id = ? AND published_at IS NULL`,
       [message.publishedAt ?? new Date(), message.id],

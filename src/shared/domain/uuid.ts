@@ -1,10 +1,5 @@
 import { randomBytes } from "node:crypto";
 
-/**
- * UUIDv7 (RFC 9562): prefixo de 48 bits com o timestamp em ms.
- * Ids ordenáveis no tempo melhoram a localidade dos índices B-tree e
- * permitem usar o id como desempate estável no cursor do ledger.
- */
 export function uuidv7(now: number = Date.now()): string {
   const bytes = randomBytes(16);
   let ts = BigInt(now);
@@ -12,8 +7,8 @@ export function uuidv7(now: number = Date.now()): string {
     bytes[i] = Number(ts & 0xffn);
     ts >>= 8n;
   }
-  bytes[6] = (bytes[6]! & 0x0f) | 0x70; // versão 7
-  bytes[8] = (bytes[8]! & 0x3f) | 0x80; // variante RFC
+  bytes[6] = (bytes[6]! & 0x0f) | 0x70;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   const hex = bytes.toString("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

@@ -13,11 +13,6 @@ export interface ReceiveInboxProps {
   receivedAt: Date;
 }
 
-/**
- * Registro de deduplicação de mensagens da fila, chave (consumerName, messageId).
- * É inserido na MESMA transação SQL do efeito financeiro: se o commit acontecer,
- * a redelivery encontra a linha e é descartada; se não acontecer, nada ficou gravado.
- */
 export class InboxMessage {
   private constructor(
     public readonly messageId: string,
@@ -46,7 +41,7 @@ export class InboxMessage {
   }
 
   markProcessed(at: Date): void {
-    if (this._processedAt) return; // idempotente
+    if (this._processedAt) return;
     this._processedAt = at;
   }
 

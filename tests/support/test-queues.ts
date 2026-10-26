@@ -18,17 +18,11 @@ export interface TestQueues {
   eventsUrl: string;
   maxReceiveCount: number;
   send(body: unknown, groupId: string): Promise<void>;
-  /** Mensagens visíveis + em voo (ainda não removidas). */
   count(url: string): Promise<number>;
-  /** Recebe e remove tudo o que estiver disponível na fila. */
   drain(url: string, rounds?: number): Promise<Message[]>;
   destroy(): Promise<void>;
 }
 
-/**
- * Filas FIFO exclusivas por arquivo de teste no LocalStack real (principal + DLQ com redrive + eventos).
- * Isoladas das filas usadas pelas instâncias que estiverem rodando no Docker.
- */
 export async function createTestQueues(
   prefix: string,
   options: { maxReceiveCount?: number; visibilityTimeoutSeconds?: number } = {},

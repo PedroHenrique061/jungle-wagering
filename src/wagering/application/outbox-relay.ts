@@ -10,7 +10,6 @@ export interface PublishResult {
   error?: string;
 }
 
-/** Porta de publicação de eventos de integração (implementação: SQS FIFO). */
 export interface IntegrationEventPublisher {
   publish(messages: OutboxMessage[]): Promise<PublishResult[]>;
 }
@@ -18,23 +17,11 @@ export interface IntegrationEventPublisher {
 export interface OutboxRelayOptions {
   workerId: string;
   batchSize?: number;
-  /** Tempo de posse de um lote. Se o publisher morrer, outra instância assume após o lease. */
   leaseMs?: number;
   retryPolicy?: BackoffPolicy;
   clock?: () => Date;
 }
 
-/**
- * Publisher da Transactional Outbox (seção 11). At-least-once:
- *
- *   1. claim com lease (SKIP LOCKED) — transação curta, commitada antes de publicar;
- *   2. publica FORA de transação SQL (não segura conexão/lock durante I/O de rede);
- *   3. marca publicado; falha → attempts++ e próxima tentativa com backoff.
- *
- * Morreu entre 2 e 3 → o lease expira, outra instância republica. Duplicata é segura:
- * o consumidor deduplica por `eventId` (e o SQS FIFO ainda deduplica por 5 min via
- * MessageDeduplicationId = eventId — otimização, não garantia).
- */
 export class OutboxRelay {
   private readonly batchSize: number;
   private readonly leaseMs: number;
@@ -52,7 +39,6 @@ export class OutboxRelay {
     this.clock = options.clock ?? (() => new Date());
   }
 
-  /** Um ciclo: reivindica, publica e registra o resultado. Retorna quantas mensagens tratou. */
   async relayOnce(): Promise<number> {
     const claimed = await this.uow.run((r) =>
       r.outbox.claimDue(this.clock(), this.batchSize, this.options.workerId, this.leaseMs),
@@ -61,6 +47,7 @@ export class OutboxRelay {
 
     let results: PublishResult[];
     try {
+      // publica fora da transação para não segurar conexão durante a chamada ao SQS
       results = await this.publisher.publish(claimed);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
@@ -101,7 +88,6 @@ export class OutboxRelay {
     return claimed.length;
   }
 
-  /** Atualiza as métricas de backlog e lag (idade do evento pendente mais antigo). */
   async reportState(): Promise<{ pending: number; lagSeconds: number }> {
     const stats = await this.uow.run((r) => r.outbox.stats());
     const lagSeconds = stats.oldestPendingOccurredAt

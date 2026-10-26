@@ -4,7 +4,7 @@ import { CurrencyMismatchError, InvalidMoneyError } from "@/shared/domain/domain
 
 const brl = (amount: string) => Money.from({ amount, currency: "BRL" });
 
-describe("Money.from — validação de entrada", () => {
+describe("Money.from - validação de entrada", () => {
   test.each(["25.00", "0", "0.5", "1000", "999999999.99"])("aceita %p", (amount) => {
     expect(() => brl(amount)).not.toThrow();
   });
@@ -36,7 +36,7 @@ describe("Money.from — validação de entrada", () => {
   });
 });
 
-describe("Money — escala e serialização", () => {
+describe("Money - escala e serialização", () => {
   test("normaliza para 2 casas fixas", () => {
     expect(brl("25").toJSON()).toEqual({ amount: "25.00", currency: "BRL" });
     expect(brl("0.5").amount).toBe("0.50");
@@ -66,7 +66,7 @@ describe("Money — escala e serialização", () => {
   });
 });
 
-describe("Money — aritmética e imutabilidade", () => {
+describe("Money - aritmética e imutabilidade", () => {
   test("operações retornam nova instância", () => {
     const a = brl("10.00");
     const b = a.add(brl("5.00"));
@@ -89,7 +89,7 @@ describe("Money — aritmética e imutabilidade", () => {
   });
 });
 
-describe("Money — conflito de moeda", () => {
+describe("Money - conflito de moeda", () => {
   const usd = Money.from({ amount: "1.00", currency: "USD" });
 
   test.each([

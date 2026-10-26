@@ -25,7 +25,6 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
-/** Sobe a aplicação real (Nest + MikroORM + SQS) numa porta aleatória, apontando para o banco de teste. */
 export async function startTestApp(databaseUrl: string, overrides: Partial<AppConfig> = {}): Promise<TestApp> {
   const config = loadConfig(
     { ...process.env, ...TEST_ENV, DATABASE_URL: databaseUrl },
@@ -76,7 +75,7 @@ export async function http<T = any>(
   try {
     parsed = text ? JSON.parse(text) : undefined;
   } catch {
-    /* corpo não-JSON (ex.: /metrics) */
+    // corpo que não é JSON, como o do /metrics
   }
   return { status: res.status, body: parsed as T, headers: res.headers };
 }

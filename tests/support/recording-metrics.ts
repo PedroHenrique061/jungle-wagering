@@ -1,6 +1,5 @@
 import type { DuplicateKind, TransactionSource, WageringMetrics } from "@/wagering/application/metrics";
 
-/** Métricas que só registram chamadas — para os testes afirmarem o que foi contado. */
 export class RecordingMetrics implements WageringMetrics {
   readonly outcomes: { status: string; kind: string; source: TransactionSource }[] = [];
   readonly duplicates: DuplicateKind[] = [];

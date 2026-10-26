@@ -1,6 +1,5 @@
 import { DomainError } from "@/shared/domain/domain-error";
 
-/** Saldo insuficiente para um débito. A tradução para failureCode depende do kind. */
 export class InsufficientFundsError extends DomainError {
   readonly code = "INSUFFICIENT_FUNDS";
   constructor(walletId: string) {
@@ -8,7 +7,6 @@ export class InsufficientFundsError extends DomainError {
   }
 }
 
-/** Payload de transação inválido: não é persistido (HTTP 400 / ack na fila). */
 export class InvalidWagerTransactionError extends DomainError {
   readonly code = "INVALID_WAGER_TRANSACTION";
   constructor(reason: string) {
@@ -16,7 +14,6 @@ export class InvalidWagerTransactionError extends DomainError {
   }
 }
 
-/** Tentativa de transição a partir de estado terminal: erro de programação, não de negócio. */
 export class InvalidTransactionStateError extends DomainError {
   readonly code = "INVALID_TRANSACTION_STATE";
   constructor(transactionId: string, from: string, to: string) {

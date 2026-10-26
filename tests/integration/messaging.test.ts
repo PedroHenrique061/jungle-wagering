@@ -31,8 +31,6 @@ afterAll(async () => {
   await db?.close();
 });
 
-// ---------------------------------------------------------------- helpers
-
 async function newWallet(amount = "100.00") {
   const playerId = `player-${uuidv7()}`;
   const view = await new CreateWallet(uow, logger).execute({
@@ -82,7 +80,6 @@ function consumer(metrics = new RecordingMetrics(), submitter?: WagerSubmitter, 
   });
 }
 
-/** Faz polls até a fila principal esvaziar (ou estourar o prazo). */
 async function pollUntilEmpty(c: WagerTransactionConsumer, timeoutMs = 15_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -112,10 +109,8 @@ async function txByExternal(externalTransactionId: string) {
   return row;
 }
 
-// ---------------------------------------------------------------- consumidor
-
 describe("consumidor SQS", () => {
-  test("mensagem válida → mesmo use case do HTTP, PROCESSED e ack depois do commit", async () => {
+  test("mensagem válida -> mesmo use case do HTTP, PROCESSED e ack depois do commit", async () => {
     const w = await newWallet("100.00");
     const msg = envelope(w, "BET", "25.00");
     await queues.send(msg, w.walletId);
@@ -126,7 +121,7 @@ describe("consumidor SQS", () => {
     expect(b.ledger).toBe(b.balance);
   });
 
-  test("mesma mensagem publicada 2x pelo produtor → inbox deduplica, um único débito", async () => {
+  test("mesma mensagem publicada 2x pelo produtor -> inbox deduplica, um único débito", async () => {
     const w = await newWallet("100.00");
     const msg = envelope(w, "BET", "10.00");
     await queues.send(msg, w.walletId);
@@ -135,11 +130,11 @@ describe("consumidor SQS", () => {
     await pollUntilEmpty(consumer(metrics));
     const b = await balanceOf(w.walletId);
     expect(b.balance).toBe("90.00");
-    expect(b.entries).toBe(2); // abertura + 1 débito
+    expect(b.entries).toBe(2);
     expect(metrics.duplicates).toContain("inbox_redelivery");
   });
 
-  test("worker morre DEPOIS do commit e ANTES do ack → redelivery sem efeito duplicado", async () => {
+  test("worker morre DEPOIS do commit e ANTES do ack -> redelivery sem efeito duplicado", async () => {
     const w = await newWallet("100.00");
     const msg = envelope(w, "BET", "30.00");
     await queues.send(msg, w.walletId);
@@ -153,18 +148,18 @@ describe("consumidor SQS", () => {
       },
     });
     while (!crashed) await dying.pollOnce();
-    expect((await balanceOf(w.walletId)).balance).toBe("70.00"); // commit aconteceu
-    expect(await queues.count(queues.queueUrl)).toBe(1); // mas a mensagem não foi removida
+    expect((await balanceOf(w.walletId)).balance).toBe("70.00");
+    expect(await queues.count(queues.queueUrl)).toBe(1);
 
     const metrics = new RecordingMetrics();
-    await pollUntilEmpty(consumer(metrics)); // outra "instância" recebe a redelivery
+    await pollUntilEmpty(consumer(metrics));
     const b = await balanceOf(w.walletId);
     expect(b.balance).toBe("70.00");
     expect(b.entries).toBe(2);
     expect(metrics.duplicates).toContain("inbox_redelivery");
   });
 
-  test("erro de negócio (wallet inexistente) → ack, não vai para a DLQ", async () => {
+  test("erro de negócio (wallet inexistente) -> ack, não vai para a DLQ", async () => {
     const before = await queues.count(queues.dlqUrl);
     const msg = envelope({ walletId: uuidv7(), playerId: "ghost" }, "BET", "1.00");
     await queues.send(msg, "ghost-group");
@@ -182,7 +177,7 @@ describe("consumidor SQS", () => {
     expect(tx).toMatchObject({ status: "REJECTED", failure_code: "INSUFFICIENT_FUNDS" });
   });
 
-  test("mensagem malformada → DLQ imediata, com o motivo", async () => {
+  test("mensagem malformada -> DLQ imediata, com o motivo", async () => {
     await queues.drain(queues.dlqUrl, 1);
     await queues.send("{isto não é json", "poison");
     const metrics = new RecordingMetrics();
@@ -193,7 +188,7 @@ describe("consumidor SQS", () => {
     expect(metrics.dlq).toContain("MALFORMED_MESSAGE");
   });
 
-  test("erro transitório → retry com backoff e DLQ (redrive) depois de maxReceiveCount", async () => {
+  test("erro transitório -> retry com backoff e DLQ (redrive) depois de maxReceiveCount", async () => {
     await queues.drain(queues.dlqUrl, 1);
     const w = await newWallet("100.00");
     await queues.send(envelope(w, "BET", "1.00"), w.walletId);
@@ -232,19 +227,16 @@ describe("consumidor SQS", () => {
     const loop = new PollingLoop({ name: "test-consumer", tick: async (s) => (await c.pollOnce(s)) > 0, idleMs: 50, logger });
     loop.start();
     while (started === 0) await sleep(20);
-    await loop.stop(); // "SIGTERM" no meio do processamento
+    await loop.stop();
 
     expect(started).toBe(1);
     expect((await txByExternal(first.data.externalTransactionId))?.status).toBe("PROCESSED");
     expect(await txByExternal(second.data.externalTransactionId)).toBeUndefined();
-    // A segunda continua na fila (devolvida ou nunca recebida) e é processada depois.
     await pollUntilEmpty(consumer());
     expect((await txByExternal(second.data.externalTransactionId))?.status).toBe("PROCESSED");
     expect((await balanceOf(w.walletId)).balance).toBe("97.00");
   });
 });
-
-// ---------------------------------------------------------------- outbox
 
 describe("outbox publisher", () => {
   async function pendingOutbox() {
@@ -271,9 +263,7 @@ describe("outbox publisher", () => {
     );
     await Promise.all(
       relays.map(async (relay) => {
-        while ((await relay.relayOnce()) > 0) {
-          /* drena */
-        }
+        while ((await relay.relayOnce()) > 0) continue;
       }),
     );
     expect(await pendingOutbox()).toBe(0);
@@ -286,16 +276,14 @@ describe("outbox publisher", () => {
     expect(sample).toHaveProperty("version", 1);
   });
 
-  test("publisher morreu com o lote reivindicado → lease expira e outra instância publica", async () => {
-    const w = await newWallet("10.00"); // gera WalletBalanceChanged na outbox
+  test("publisher morreu com o lote reivindicado -> lease expira e outra instância publica", async () => {
+    const w = await newWallet("10.00");
     await uow.run((r) => r.outbox.claimDue(new Date(), 1000, "dead-publisher", 50));
     await sleep(100);
     const relay = new OutboxRelay(uow, new SqsEventPublisher(queues.sqs, queues.eventsUrl), new RecordingMetrics(), logger, {
       workerId: "survivor",
     });
-    while ((await relay.relayOnce()) > 0) {
-      /* drena */
-    }
+    while ((await relay.relayOnce()) > 0) continue;
     const [row] = await db.sql<{ n: number }>(
       `SELECT COUNT(*)::int AS n FROM outbox_messages WHERE aggregate_id = ? AND published_at IS NULL`,
       [w.walletId],
@@ -303,7 +291,7 @@ describe("outbox publisher", () => {
     expect(row!.n).toBe(0);
   });
 
-  test("falha de publicação → reagenda com backoff, sem perder o evento", async () => {
+  test("falha de publicação -> reagenda com backoff, sem perder o evento", async () => {
     const w = await newWallet("10.00");
     const failing: IntegrationEventPublisher = {
       publish: async (messages) => messages.map((m) => ({ id: m.id, ok: false, error: "sqs down" })),
@@ -321,12 +309,10 @@ describe("outbox publisher", () => {
   });
 });
 
-// ---------------------------------------------------------------- referências fora de ordem
-
 describe("worker de PENDING_REFERENCE", () => {
   const later = () => new Date(Date.now() + 10 * 60_000);
 
-  test("ROLLBACK chega antes da BET → fica pendente → worker aplica quando a BET chega", async () => {
+  test("ROLLBACK chega antes da BET -> fica pendente -> worker aplica quando a BET chega", async () => {
     const w = await newWallet("100.00");
     const submit = new SubmitWagerTransaction(uow, new RecordingMetrics(), logger);
     const betId = `bet-${uuidv7()}`;
@@ -346,7 +332,7 @@ describe("worker de PENDING_REFERENCE", () => {
     expect(b.ledger).toBe("100.00");
   });
 
-  test("referência nunca chega → REJECTED/REFERENCE_NOT_FOUND e evento Rejected na outbox", async () => {
+  test("referência nunca chega -> REJECTED/REFERENCE_NOT_FOUND e evento Rejected na outbox", async () => {
     const w = await newWallet("100.00");
     const submit = new SubmitWagerTransaction(uow, new RecordingMetrics(), logger);
     const refund = envelope(w, "REFUND", "10.00", { referenceExternalTransactionId: `nunca-${uuidv7()}` });

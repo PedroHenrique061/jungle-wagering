@@ -4,15 +4,6 @@ import type { OutboxMessage } from "@/wagering/domain/outbox-message";
 
 const SQS_BATCH_LIMIT = 10;
 
-/**
- * Publica envelopes da outbox numa fila SQS FIFO.
- *
- * - MessageGroupId = aggregateId: eventos do mesmo agregado (wallet ou transação) são entregues
- *   em ordem ao consumidor; agregados diferentes fluem em paralelo.
- * - MessageDeduplicationId = eventId: o SQS descarta republicações em até 5 min (otimização);
- *   a garantia final é o consumidor deduplicar por eventId.
- * - Resultado por mensagem: falha parcial do lote reagenda só as que falharam.
- */
 export class SqsEventPublisher implements IntegrationEventPublisher {
   constructor(
     private readonly sqs: SQSClient,

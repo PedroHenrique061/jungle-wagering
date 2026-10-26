@@ -14,7 +14,6 @@ import { WagerTransactionStatus, type WagerTransaction } from "../domain/wager-t
 import type { Wallet } from "../domain/wallet";
 import type { Repositories } from "./ports";
 
-/** Resposta de submissão — igual para HTTP e fila, e reproduzida em replays. */
 export interface WagerResult {
   transactionId: string;
   status: WagerTransactionStatus;
@@ -25,22 +24,13 @@ export interface WagerResult {
 }
 
 export interface SettleOptions {
-  /** true: transação nova (INSERT); false: reprocessamento de PENDING_REFERENCE (UPDATE). */
   isNew: boolean;
   correlationId?: string;
   causationId?: string;
   now: Date;
-  /** Política de retry de referência (default: REFERENCE_RETRY_POLICY do domínio). */
   policy?: BackoffPolicy;
 }
 
-/**
- * Passo atômico central, executado DENTRO de uma UnitOfWork com a wallet já travada:
- * resolve a referência → liquida no domínio → persiste transação, saldo, ledger e outbox.
- *
- * Ordem de escrita importa pouco (FKs deferidas), mas segue a ordem lógica para leitura.
- * Os eventos só vão para a outbox: a publicação acontece depois do COMMIT, pelo publisher.
- */
 export async function settleAndPersist(
   repos: Repositories,
   tx: WagerTransaction,
@@ -84,14 +74,13 @@ export async function settleAndPersist(
         events.push(WalletBalanceChanged.from(wallet, outcome.ledgerEntry, ctx));
       }
       events.push(WagerTransactionProcessed.from(tx, ctx));
-      // Quem esperava por esta transação é reavaliado já, sem aguardar o backoff.
       await repos.transactions.wakeDependents(tx.providerId, tx.externalTransactionId, options.now);
       break;
     case "REJECTED":
       events.push(WagerTransactionRejected.from(tx, ctx));
       break;
     case "PENDING_REFERENCE":
-      // Só na entrada em espera; as reavaliações do worker não geram um evento por tentativa.
+      // só na entrada em espera; as reavaliações do worker não geram um evento por tentativa
       if (options.isNew) events.push(WagerTransactionPendingReference.from(tx, ctx));
       break;
   }
@@ -100,10 +89,6 @@ export async function settleAndPersist(
   return outcome;
 }
 
-/**
- * Resultado a partir do estado persistido. Para estados terminais usa o saldo observado
- * no momento da decisão (`resultBalance`), nunca o saldo atual — requisito de replay.
- */
 export function toWagerResult(tx: WagerTransaction, idempotentReplay: boolean, currentBalance?: MoneyProps): WagerResult {
   const result: WagerResult = {
     transactionId: tx.id,

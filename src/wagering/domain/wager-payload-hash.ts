@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { canonicalJson } from "@/shared/domain/canonical-json";
 import { Money, type MoneyProps } from "@/shared/domain/money";
 
-/** Campos de negócio que entram no hash. Header Idempotency-Key, messageId e metadados de transporte NÃO entram. */
 export interface WagerBusinessFields {
   providerId: string;
   externalTransactionId: string;
@@ -15,13 +14,6 @@ export interface WagerBusinessFields {
   referenceExternalTransactionId?: string;
 }
 
-/**
- * payloadHash = "sha256:" + hex(SHA-256(UTF-8(canonicalJson(campos))))
- *
- * - `money.amount` é normalizado pela escala do Money ("25" e "25.00" → "25.00"):
- *   são o mesmo valor, portanto o mesmo payload.
- * - `referenceExternalTransactionId` ausente é omitido (não vira null).
- */
 export function computeWagerPayloadHash(fields: WagerBusinessFields): string {
   const normalized = {
     providerId: fields.providerId,

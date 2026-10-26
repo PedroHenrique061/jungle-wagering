@@ -31,8 +31,6 @@ function transactionRef(tx: WagerTransaction): TransactionRef {
   };
 }
 
-// ---------------------------------------------------------------- Processed
-
 export interface WagerTransactionProcessedData extends TransactionRef {
   status: WagerTransactionStatus;
   referenceTransactionId?: string;
@@ -40,7 +38,6 @@ export interface WagerTransactionProcessedData extends TransactionRef {
   processedAt: string;
 }
 
-/** Qualquer transação aplicada, inclusive LOSS. */
 export class WagerTransactionProcessed extends IntegrationEvent<WagerTransactionProcessedData> {
   readonly eventType = "WagerTransactionProcessed";
   readonly version = 1;
@@ -56,8 +53,6 @@ export class WagerTransactionProcessed extends IntegrationEvent<WagerTransaction
     return new WagerTransactionProcessed(IntegrationEvent.props(tx.id, data, ctx));
   }
 }
-
-// ---------------------------------------------------------------- Rejected
 
 export interface WagerTransactionRejectedData extends TransactionRef {
   failureCode: FailureCode;
@@ -79,8 +74,6 @@ export class WagerTransactionRejected extends IntegrationEvent<WagerTransactionR
     return new WagerTransactionRejected(IntegrationEvent.props(tx.id, data, ctx));
   }
 }
-
-// ---------------------------------------------------------------- PendingReference
 
 export interface WagerTransactionPendingReferenceData extends TransactionRef {
   referenceExternalTransactionId: string;
@@ -108,8 +101,6 @@ export class WagerTransactionPendingReference extends IntegrationEvent<WagerTran
   }
 }
 
-// ---------------------------------------------------------------- WalletBalanceChanged
-
 export interface WalletBalanceChangedData {
   walletId: string;
   transactionId: string;
@@ -120,7 +111,6 @@ export interface WalletBalanceChangedData {
   walletVersion: number;
 }
 
-/** Somente quando o saldo muda. `walletVersion` permite ao consumidor ordenar e descartar duplicatas. */
 export class WalletBalanceChanged extends IntegrationEvent<WalletBalanceChangedData> {
   readonly eventType = "WalletBalanceChanged";
   readonly version = 1;

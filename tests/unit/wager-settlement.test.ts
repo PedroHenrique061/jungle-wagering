@@ -16,7 +16,6 @@ function settle(ctx: Partial<SettlementContext> & Pick<SettlementContext, "trans
   return WagerSettlement.settle({ referenceAlreadyReversed: false, now: at(10), ...ctx });
 }
 
-/** Processa uma transação sem referência e devolve-a já PROCESSED. */
 function processed(wallet: Wallet, t: WagerTransaction): WagerTransaction {
   const outcome = settle({ transaction: t, wallet });
   expect(outcome.type).toBe("PROCESSED");
@@ -36,7 +35,7 @@ describe("BET", () => {
     expect(bet.resultBalance?.amount).toBe("75.00");
   });
 
-  test("saldo insuficiente → REJECTED/INSUFFICIENT_FUNDS, sem ledger e sem mudar version", () => {
+  test("saldo insuficiente -> REJECTED/INSUFFICIENT_FUNDS, sem ledger e sem mudar version", () => {
     const wallet = openWallet("10.00");
     const bet = tx({ kind: K.Bet, amount: "25.00" });
     const outcome = settle({ transaction: bet, wallet });
@@ -46,7 +45,7 @@ describe("BET", () => {
     expect(bet.resultBalance?.amount).toBe("10.00");
   });
 
-  test("cenário obrigatório em sequência: 100 − 80 − 80 → uma PROCESSED, uma REJECTED, saldo 20", () => {
+  test("cenário obrigatório em sequência: 100 - 80 - 80 -> uma PROCESSED, uma REJECTED, saldo 20", () => {
     const wallet = openWallet("100.00");
     const first = tx({ amount: "80.00" });
     const second = tx({ amount: "80.00" });
@@ -120,7 +119,7 @@ describe("REFUND", () => {
     });
   });
 
-  test("valor diferente da referência → REVERSAL_AMOUNT_MISMATCH", () => {
+  test("valor diferente da referência -> REVERSAL_AMOUNT_MISMATCH", () => {
     const wallet = openWallet("100.00");
     const bet = processed(wallet, tx({ externalTransactionId: "bet-1", amount: "30.00" }));
     const refund = tx({ kind: K.Refund, amount: "10.00", reference: "bet-1" });
@@ -131,7 +130,7 @@ describe("REFUND", () => {
     expect(wallet.balance.amount).toBe("70.00");
   });
 
-  test("referência já revertida → REFERENCE_ALREADY_REVERSED (reversão única)", () => {
+  test("referência já revertida -> REFERENCE_ALREADY_REVERSED (reversão única)", () => {
     const wallet = openWallet("100.00");
     const bet = processed(wallet, tx({ externalTransactionId: "bet-1", amount: "30.00" }));
     const refund = tx({ kind: K.Refund, amount: "30.00", reference: "bet-1" });
@@ -142,10 +141,10 @@ describe("REFUND", () => {
     expect(wallet.balance.amount).toBe("70.00");
   });
 
-  test("referência REJECTED → REFERENCE_NOT_PROCESSED", () => {
+  test("referência REJECTED -> REFERENCE_NOT_PROCESSED", () => {
     const wallet = openWallet("10.00");
     const bet = tx({ externalTransactionId: "bet-1", amount: "30.00" });
-    settle({ transaction: bet, wallet }); // rejeitada por saldo
+    settle({ transaction: bet, wallet });
     const refund = tx({ kind: K.Refund, amount: "30.00", reference: "bet-1" });
     expect(settle({ transaction: refund, wallet, reference: bet })).toEqual({
       type: "REJECTED",
@@ -158,10 +157,9 @@ describe("REFUND", () => {
     ["rodada", { roundId: "outra-rodada" }],
     ["player", { playerId: "outro-player" }],
     ["provider", { providerId: "provider-b" }],
-  ])("referência de outra %s → REFERENCE_MISMATCH", (_label, patch) => {
+  ])("referência de outra %s -> REFERENCE_MISMATCH", (_label, patch) => {
     const wallet = openWallet("100.00");
     const bet = processed(wallet, tx({ externalTransactionId: "bet-1", amount: "30.00" }));
-    // A reversão vem de outro escopo; a wallet é carregada pela walletId do payload.
     const refund = tx({ kind: K.Refund, amount: "30.00", reference: "bet-1", ...patch });
     const outcome = settle({ transaction: refund, wallet, reference: bet });
     expect(outcome.type).toBe("REJECTED");
@@ -170,7 +168,7 @@ describe("REFUND", () => {
     }
   });
 
-  test("referência de outra rodada (mesmo player/wallet) → REFERENCE_MISMATCH", () => {
+  test("referência de outra rodada (mesmo player/wallet) -> REFERENCE_MISMATCH", () => {
     const wallet = openWallet("100.00");
     const bet = processed(wallet, tx({ externalTransactionId: "bet-1", amount: "30.00", roundId: "r1" }));
     const refund = tx({ kind: K.Refund, amount: "30.00", reference: "bet-1", roundId: "r2" });
@@ -182,7 +180,7 @@ describe("REFUND", () => {
 });
 
 describe("ROLLBACK", () => {
-  test("de BET → crédito", () => {
+  test("de BET -> crédito", () => {
     const wallet = openWallet("100.00");
     const bet = processed(wallet, tx({ externalTransactionId: "bet-1", amount: "40.00" }));
     const rollback = tx({ kind: K.Rollback, amount: "40.00", reference: "bet-1" });
@@ -191,7 +189,7 @@ describe("ROLLBACK", () => {
     expect(wallet.balance.amount).toBe("100.00");
   });
 
-  test("de WIN → débito", () => {
+  test("de WIN -> débito", () => {
     const wallet = openWallet("100.00");
     const win = processed(wallet, tx({ kind: K.Win, externalTransactionId: "win-1", amount: "40.00" }));
     const rollback = tx({ kind: K.Rollback, amount: "40.00", reference: "win-1" });
@@ -200,7 +198,7 @@ describe("ROLLBACK", () => {
     expect(wallet.balance.amount).toBe("100.00");
   });
 
-  test("de REFUND → débito", () => {
+  test("de REFUND -> débito", () => {
     const wallet = openWallet("100.00");
     const bet = processed(wallet, tx({ externalTransactionId: "bet-1", amount: "40.00" }));
     const refund = tx({ kind: K.Refund, externalTransactionId: "ref-1", amount: "40.00", reference: "bet-1" });
@@ -211,10 +209,10 @@ describe("ROLLBACK", () => {
     expect(wallet.balance.amount).toBe("60.00");
   });
 
-  test("ROLLBACK de WIN que deixaria saldo negativo → REVERSAL_INSUFFICIENT_FUNDS (≠ INSUFFICIENT_FUNDS)", () => {
+  test("ROLLBACK de WIN que deixaria saldo negativo -> REVERSAL_INSUFFICIENT_FUNDS (!= INSUFFICIENT_FUNDS)", () => {
     const wallet = openWallet("0.00");
     const win = processed(wallet, tx({ kind: K.Win, externalTransactionId: "win-1", amount: "50.00" }));
-    processed(wallet, tx({ kind: K.Bet, amount: "45.00" })); // jogador gastou o prêmio
+    processed(wallet, tx({ kind: K.Bet, amount: "45.00" }));
     const rollback = tx({ kind: K.Rollback, amount: "50.00", reference: "win-1" });
     const outcome = settle({ transaction: rollback, wallet, reference: win });
     expect(outcome).toEqual({ type: "REJECTED", failureCode: FailureCode.ReversalInsufficientFunds });
@@ -234,7 +232,7 @@ describe("ROLLBACK", () => {
 });
 
 describe("Referências fora de ordem", () => {
-  test("referência ausente → PENDING_REFERENCE, sem tocar saldo", () => {
+  test("referência ausente -> PENDING_REFERENCE, sem tocar saldo", () => {
     const wallet = openWallet("100.00");
     const refund = tx({ kind: K.Refund, amount: "30.00", reference: "bet-que-ainda-nao-chegou" });
     const outcome = settle({ transaction: refund, wallet });
@@ -243,7 +241,7 @@ describe("Referências fora de ordem", () => {
     expect(wallet.version).toBe(1);
   });
 
-  test("referência chega depois → reprocessamento aplica normalmente", () => {
+  test("referência chega depois -> reprocessamento aplica normalmente", () => {
     const wallet = openWallet("100.00");
     const rollback = tx({ kind: K.Rollback, amount: "30.00", reference: "bet-1" });
     settle({ transaction: rollback, wallet, now: at(1) });
@@ -261,7 +259,7 @@ describe("Referências fora de ordem", () => {
     expect(settle({ transaction: rollback, wallet, reference: win }).type).toBe("PENDING_REFERENCE");
   });
 
-  test("esgotadas as tentativas → REJECTED/REFERENCE_NOT_FOUND", () => {
+  test("esgotadas as tentativas -> REJECTED/REFERENCE_NOT_FOUND", () => {
     const wallet = openWallet("100.00");
     const refund = tx({ kind: K.Refund, amount: "30.00", reference: "nunca-chega" });
     let outcome = settle({ transaction: refund, wallet });
@@ -277,7 +275,7 @@ describe("Referências fora de ordem", () => {
 });
 
 describe("Pré-condições", () => {
-  test("moeda da transação ≠ moeda da wallet → REJECTED/CURRENCY_MISMATCH", () => {
+  test("moeda da transação != moeda da wallet -> REJECTED/CURRENCY_MISMATCH", () => {
     const wallet = openWallet("100.00", "BRL");
     expect(settle({ transaction: tx({ currency: "USD" }), wallet })).toEqual({
       type: "REJECTED",
@@ -286,7 +284,7 @@ describe("Pré-condições", () => {
     expect(wallet.version).toBe(1);
   });
 
-  test("player diferente do dono da wallet → WALLET_PLAYER_MISMATCH", () => {
+  test("player diferente do dono da wallet -> WALLET_PLAYER_MISMATCH", () => {
     const wallet = openWallet("100.00");
     expect(settle({ transaction: tx({ playerId: "intruso" }), wallet })).toEqual({
       type: "REJECTED",
@@ -316,7 +314,7 @@ describe("Pré-condições", () => {
     apply(tx({ kind: K.Loss, amount: "70.00", reference: "b2" }), b2);
     const b3 = apply(tx({ externalTransactionId: "b3", amount: "33.33" }));
     apply(tx({ kind: K.Refund, amount: "33.33", reference: "b3" }), b3);
-    apply(tx({ amount: "9999.00" })); // rejeitada
+    apply(tx({ amount: "9999.00" }));
     expect(ledgerSum.equals(wallet.balance)).toBe(true);
     expect(wallet.balance.amount).toBe("200.00");
   });

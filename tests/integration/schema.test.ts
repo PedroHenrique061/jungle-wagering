@@ -27,7 +27,6 @@ afterAll(async () => {
 
 const brl = (amount: string) => Money.from({ amount, currency: "BRL" });
 
-/** Abre uma wallet do jeito certo: wallet + OPENING + lançamento na mesma transação. */
 async function seedWallet(amount = "100.00", playerId = uuidv7()) {
   const now = new Date();
   const openingId = uuidv7();
@@ -174,7 +173,7 @@ describe("wallet_ledger_entries", () => {
     expect(await expectDbError(() => db.sql(`TRUNCATE wallet_ledger_entries CASCADE`))).toContain("append-only");
   });
 
-  test("aritmética before ± amount = after é CHECK do banco", async () => {
+  test("aritmética before +/- amount = after é CHECK do banco", async () => {
     const { wallet, opening } = await seedWallet("10.00");
     const msg = await expectDbError(() =>
       db.sql(

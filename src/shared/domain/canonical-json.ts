@@ -1,8 +1,3 @@
-/**
- * Serialização JSON canônica: chaves de objeto ordenadas (code points UTF-16),
- * sem espaços, propriedades `undefined` omitidas, arrays preservam a ordem.
- * Duas estruturas semanticamente iguais produzem exatamente a mesma string.
- */
 export function canonicalJson(value: unknown): string {
   if (value === null) return "null";
   switch (typeof value) {

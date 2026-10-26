@@ -1,13 +1,6 @@
 import { MikroORM } from "@mikro-orm/postgresql";
 import { createOrmConfig } from "@/infrastructure/persistence/mikro-orm.config";
 
-/**
- * Banco PostgreSQL REAL por arquivo de teste (wagering_test_<nome>), recriado do zero
- * e migrado com as migrations de produção. Nada de mocks de banco.
- *
- * Requer `bun run infra:up`. URL base: TEST_DATABASE_URL ou DATABASE_URL
- * (default postgres://wagering:wagering@localhost:5432/wagering).
- */
 const BASE_URL =
   process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "postgres://wagering:wagering@localhost:5432/wagering";
 
@@ -20,7 +13,6 @@ function withDatabase(url: string, database: string): string {
 export interface TestDatabase {
   orm: MikroORM;
   url: string;
-  /** SQL direto, fora do domínio — usado para provar que o schema rejeita violações. */
   sql<T = Record<string, unknown>>(query: string, params?: unknown[]): Promise<T[]>;
   close(): Promise<void>;
 }
@@ -49,7 +41,6 @@ export async function createTestDatabase(name: string): Promise<TestDatabase> {
   };
 }
 
-/** Executa `fn` e devolve a mensagem do erro esperado (falha o teste se não houver erro). */
 export async function expectDbError(fn: () => Promise<unknown>): Promise<string> {
   try {
     await fn();

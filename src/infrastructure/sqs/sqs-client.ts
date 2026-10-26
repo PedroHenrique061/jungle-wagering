@@ -10,7 +10,6 @@ export function createSqsClient(config: AppConfig): SQSClient {
   });
 }
 
-/** Readiness: a fila de entrada existe e responde dentro do prazo. */
 export async function checkSqs(client: SQSClient, queueUrl: string, timeoutMs = 2_000): Promise<void> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), timeoutMs);

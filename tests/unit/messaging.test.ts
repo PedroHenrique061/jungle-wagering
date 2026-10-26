@@ -112,7 +112,7 @@ describe("OutboxMessage", () => {
 });
 
 describe("InboxMessage", () => {
-  test("receive → markProcessed (idempotente)", () => {
+  test("receive -> markProcessed (idempotente)", () => {
     const inbox = InboxMessage.receive({ messageId: "msg-1", consumerName: "wager-consumer", payloadHash: "h", receivedAt: T0 });
     expect(inbox.isProcessed()).toBe(false);
     inbox.markProcessed(at(1));

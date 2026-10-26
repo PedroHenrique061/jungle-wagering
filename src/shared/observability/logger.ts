@@ -1,11 +1,3 @@
-/**
- * Logger estruturado (uma linha JSON por evento), sem dependências.
- *
- * - Campos de contexto (correlationId, messageId, transactionId, walletId, providerId)
- *   são herdados via `child`.
- * - Redação por nome de campo: payloads, valores monetários e credenciais nunca vão para o log.
- *   Ids e códigos sim — são o que permite diagnosticar sem expor dados financeiros.
- */
 export type LogLevel = "debug" | "info" | "warn" | "error";
 export type LogFields = Record<string, unknown>;
 

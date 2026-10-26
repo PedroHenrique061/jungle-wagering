@@ -20,10 +20,6 @@ export interface LedgerEntryState {
 
 export type CreateLedgerEntryProps = Omit<LedgerEntryState, "id"> & { id?: string };
 
-/**
- * Lançamento imutável do ledger. Sem setters, sem transições; a instância é congelada.
- * A aritmética (before ± money === after) é verificada na factory.
- */
 export class WalletLedgerEntry {
   private constructor(
     public readonly id: string,
@@ -63,7 +59,6 @@ export class WalletLedgerEntry {
     return entry;
   }
 
-  /** Reconstrução da persistência: não revalida (o banco já garante via CHECK). */
   static rehydrate(state: LedgerEntryState): WalletLedgerEntry {
     return new WalletLedgerEntry(
       state.id,
@@ -81,7 +76,6 @@ export class WalletLedgerEntry {
     return this.balanceBefore.add(this.signedAmount()).equals(this.balanceAfter);
   }
 
-  /** +money para crédito, -money para débito. Usado na reconciliação. */
   signedAmount(): Money {
     return this.direction === LedgerDirection.Credit ? this.money : this.money.negate();
   }

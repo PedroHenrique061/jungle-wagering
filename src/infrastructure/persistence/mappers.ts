@@ -17,11 +17,8 @@ import type {
   WalletRecord,
 } from "./records";
 
-/** Postgres pode devolver NUMERIC sem zeros à direita dependendo do driver; Money normaliza. */
 const money = (amount: string, currency: string) => Money.fromPersistence(String(amount), currency.trim());
 const opt = <T>(value: T | null | undefined): T | undefined => (value === null ? undefined : value);
-
-// ---------------------------------------------------------------- Wallet
 
 export function walletFromRecord(r: WalletRecord): Wallet {
   return Wallet.rehydrate({
@@ -48,8 +45,6 @@ export function walletToRecord(w: Wallet): WalletRecord {
   };
 }
 
-// ---------------------------------------------------------------- WagerTransaction
-
 export function transactionFromRecord(r: WagerTransactionRecord): WagerTransaction {
   return WagerTransaction.rehydrate({
     id: r.id,
@@ -75,7 +70,6 @@ export function transactionFromRecord(r: WagerTransactionRecord): WagerTransacti
   });
 }
 
-/** Colunas mutáveis — as únicas que `update` grava (o trigger rejeita mudança nas demais). */
 export function transactionMutableColumns(t: WagerTransaction, now: Date): Partial<WagerTransactionRecord> {
   const s = t.toState();
   return {
@@ -112,8 +106,6 @@ export function transactionToRecord(t: WagerTransaction, correlationId: string |
   };
 }
 
-// ---------------------------------------------------------------- Ledger
-
 export function ledgerEntryFromRecord(r: LedgerEntryRecord): WalletLedgerEntry {
   return WalletLedgerEntry.rehydrate({
     id: r.id,
@@ -140,8 +132,6 @@ export function ledgerEntryToRecord(e: WalletLedgerEntry): Omit<LedgerEntryRecor
     createdAt: e.createdAt,
   };
 }
-
-// ---------------------------------------------------------------- Inbox / Outbox
 
 export function inboxToRecord(m: InboxMessage, transactionId?: string): InboxMessageRecord {
   const s = m.toState();
@@ -174,11 +164,10 @@ export function outboxToRecord(m: OutboxMessage): OutboxMessageRecord {
     id: s.id,
     aggregateId: s.aggregateId,
     eventType: s.eventType,
-    // Cópia profunda: o domínio entrega o payload congelado e o ORM normaliza parâmetros no lugar.
+    // o payload vem congelado do domínio e o MikroORM altera os parâmetros no lugar
     payload: JSON.parse(JSON.stringify(s.payload)) as Record<string, unknown>,
     occurredAt: s.occurredAt,
     attempts: s.attempts,
-    // Coluna NOT NULL: sem agendamento, vence imediatamente.
     nextAttemptAt: s.nextAttemptAt ?? s.occurredAt,
     publishedAt: s.publishedAt ?? null,
     lockedBy: null,

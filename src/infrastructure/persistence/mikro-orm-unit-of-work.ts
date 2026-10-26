@@ -4,23 +4,12 @@ import { translateDbError } from "./db-errors";
 import { createRepositories } from "./repositories";
 
 export interface UnitOfWorkOptions {
-  /** Tempo máximo esperando lock de linha (hot wallet). Estourou → 55P03 → erro transitório → retry. */
   lockTimeoutMs: number;
-  /** Teto de duração de cada statement. */
   statementTimeoutMs: number;
 }
 
 const DEFAULTS: UnitOfWorkOptions = { lockTimeoutMs: 5_000, statementTimeoutMs: 15_000 };
 
-/**
- * Fronteira transacional sobre `EntityManager.transactional()`:
- * um fork do EntityManager por unidade de trabalho (sem estado compartilhado entre requisições),
- * isolamento READ COMMITTED + locks de linha explícitos onde a correção depende deles.
- *
- * Por que READ COMMITTED e não SERIALIZABLE: a unidade de concorrência é a wallet e ela é
- * serializada por SELECT … FOR UPDATE; cada statement depois do lock enxerga os commits
- * anteriores. SERIALIZABLE geraria falhas 40001 em massa no cenário de hot wallet sem ganho de correção.
- */
 export class MikroOrmUnitOfWork implements UnitOfWork {
   private readonly options: UnitOfWorkOptions;
 
@@ -34,7 +23,7 @@ export class MikroOrmUnitOfWork implements UnitOfWork {
   async run<T>(work: (repos: Repositories) => Promise<T>): Promise<T> {
     try {
       return await this.orm.em.fork().transactional(async (em) => {
-        // SET LOCAL vale só dentro desta transação. Valores inteiros validados → sem injeção.
+        // evita que uma wallet muito disputada segure conexões indefinidamente
         await em.execute(`SET LOCAL lock_timeout = '${Math.trunc(this.options.lockTimeoutMs)}ms'`);
         await em.execute(`SET LOCAL statement_timeout = '${Math.trunc(this.options.statementTimeoutMs)}ms'`);
         return work(createRepositories(em));
@@ -45,7 +34,6 @@ export class MikroOrmUnitOfWork implements UnitOfWork {
   }
 }
 
-/** Consultas fora de transação explícita, cada uma num fork novo do EntityManager. */
 export class MikroOrmReadRepositories implements ReadRepositories {
   constructor(private readonly orm: MikroORM) {}
 

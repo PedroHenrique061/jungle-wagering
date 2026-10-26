@@ -13,8 +13,6 @@ import type { WagerResult } from "@/wagering/application/wager-processing";
 import { WagerTransactionStatus } from "@/wagering/domain/wager-transaction";
 import { CorrelationId, Public } from "./request-context";
 
-// ---------------------------------------------------------------- wallets
-
 @Controller("wallets")
 export class WalletsController {
   constructor(
@@ -53,15 +51,6 @@ export class WalletsController {
   }
 }
 
-// ---------------------------------------------------------------- wagering
-
-/**
- * Status de uma submissão aceita (erros passam pelo HttpErrorFilter):
- *   PROCESSED novo → 201 · replay de PROCESSED → 200
- *   PENDING_REFERENCE → 202 (aceito, processamento pendente)
- *   REJECTED → 422 com failureCode (novo ou replay — mesmo corpo, idempotentReplay distingue)
- *   FAILED → 500 com failureCode (terminal, auditável)
- */
 export function statusFor(result: WagerResult): number {
   switch (result.status) {
     case WagerTransactionStatus.Processed:
@@ -114,8 +103,6 @@ export class WageringController {
   }
 }
 
-// ---------------------------------------------------------------- health & metrics
-
 @Public()
 @Controller()
 export class OperationsController {
@@ -126,13 +113,11 @@ export class OperationsController {
     @Inject(PrometheusMetrics) private readonly metrics: PrometheusMetrics,
   ) {}
 
-  /** Liveness: o processo responde. Não toca dependências (reiniciar não cura o banco). */
   @Get("health/live")
   live() {
     return { status: "ok", instanceId: this.config.instanceId };
   }
 
-  /** Readiness: PostgreSQL e SQS alcançáveis. 503 tira a instância do balanceador. */
   @Get("health/ready")
   async ready(@Res({ passthrough: true }) res: Response) {
     const [postgres, sqs] = await Promise.all([

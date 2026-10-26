@@ -1,10 +1,6 @@
 import { Counter, Gauge, Histogram, Registry, collectDefaultMetrics } from "prom-client";
 import type { DuplicateKind, TransactionSource, WageringMetrics } from "@/wagering/application/metrics";
 
-/**
- * Métricas expostas em GET /metrics (formato Prometheus). Registry próprio por instância
- * da aplicação — cada réplica expõe as suas, e o Prometheus agrega por label `instance`.
- */
 export class PrometheusMetrics implements WageringMetrics {
   readonly registry = new Registry();
 

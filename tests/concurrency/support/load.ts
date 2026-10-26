@@ -67,10 +67,6 @@ export async function postWager(baseUrl: string, w: ReturnType<typeof wagerBody>
   return { status: res.status, body: (await res.json()) as WagerResponse["body"] };
 }
 
-/**
- * Cliente "provedor": reenvia com a MESMA Idempotency-Key até obter resposta definitiva,
- * girando entre instâncias quando uma cai (conexão recusada/resetada) ou responde 503.
- */
 export async function postWagerWithRetry(
   baseUrls: string[],
   w: ReturnType<typeof wagerBody>,
@@ -85,7 +81,7 @@ export async function postWagerWithRetry(
       const response = await postWager(baseUrl, w);
       if (response.status !== 503 && response.status !== 502) return { ...response, attempts: attempt };
     } catch {
-      /* instância fora do ar: tenta a próxima */
+      // instância fora do ar, tenta a próxima
     }
     await Bun.sleep(50);
   }
@@ -101,7 +97,6 @@ export interface WalletInvariants {
   statuses: Record<string, number>;
 }
 
-/** Estado final lido direto do banco: saldo materializado, saldo do ledger e contagens. */
 export async function walletInvariants(db: TestDatabase, walletId: string): Promise<WalletInvariants> {
   const [w] = await db.sql<{ balance: string; version: number }>(
     `SELECT balance::text AS balance, version FROM wallets WHERE id = ?`,
@@ -128,14 +123,10 @@ export async function walletInvariants(db: TestDatabase, walletId: string): Prom
   };
 }
 
-/** A invariante final de TODOS os testes (seção 13). */
 export function expectLedgerConsistent(inv: WalletInvariants): void {
   expect(inv.ledgerBalance).toBe(inv.balance);
-  // version = 1 (abertura) + 1 por mudança de saldo (cada lançamento após a abertura).
   expect(inv.version).toBe(inv.debits + inv.credits);
 }
-
-// ---------------------------------------------------------------- instâncias em processos separados
 
 export interface SpawnedInstance {
   port: number;
@@ -157,7 +148,6 @@ export function instanceEnv(port: number, overrides: Record<string, string>): Re
   };
 }
 
-/** Sobe `bun run src/main.ts` — a aplicação real, em outro processo do sistema operacional. */
 export async function spawnInstance(port: number, env: Record<string, string>): Promise<SpawnedInstance> {
   const proc = Bun.spawn({
     cmd: ["bun", "run", "src/main.ts"],
@@ -181,7 +171,7 @@ export async function waitReady(baseUrl: string, proc?: ReturnType<typeof Bun.sp
       const res = await fetch(`${baseUrl}/health/ready`);
       if (res.status === 200) return;
     } catch {
-      /* ainda subindo */
+      // ainda subindo
     }
     await Bun.sleep(150);
   }
@@ -193,7 +183,6 @@ export async function stopInstance(instance: SpawnedInstance, signal: "SIGTERM" 
   return instance.proc.exited;
 }
 
-/** Espera uma condição assíncrona (com prazo). */
 export async function eventually(check: () => Promise<boolean>, timeoutMs: number, label: string): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

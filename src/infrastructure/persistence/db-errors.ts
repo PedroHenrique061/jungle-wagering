@@ -6,18 +6,6 @@ import {
 } from "@/wagering/application/errors";
 import { DomainError } from "@/shared/domain/domain-error";
 
-/**
- * Traduz erros do driver/ORM para a taxonomia da aplicação, pelo SQLSTATE:
- *
- * | SQLSTATE            | Significado                         | Classe                |
- * | ------------------- | ----------------------------------- | --------------------- |
- * | 23505               | unique_violation                    | UniqueViolationError  |
- * | 23xxx (demais)      | integridade (CHECK, trigger, FK)    | Permanent             |
- * | 40001 / 40P01       | serialização / deadlock             | Transient             |
- * | 55P03 / 57014       | lock_timeout / statement_timeout    | Transient             |
- * | 08xxx / 57P0x / 53x | conexão, shutdown, recursos         | Transient             |
- * | ECONNREFUSED etc.   | rede                                | Transient             |
- */
 export function translateDbError(error: unknown): unknown {
   if (error instanceof DomainError || error instanceof ApplicationError) return error;
 
@@ -56,7 +44,6 @@ function isNetworkError(error: unknown): boolean {
   return false;
 }
 
-/** MikroORM envolve o erro do `pg`; o SQLSTATE pode estar em `code`, `sqlState` ou na causa. */
 function findSqlState(error: unknown): string | undefined {
   for (const e of chain(error)) {
     const candidate = (e as { sqlState?: unknown; code?: unknown }).sqlState ?? (e as { code?: unknown }).code;

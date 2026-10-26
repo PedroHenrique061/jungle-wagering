@@ -10,7 +10,7 @@ import { T0, at, brl, tx } from "../support/domain-builders";
 
 const K = WagerTransactionKind;
 
-describe("WagerTransaction.create — validação", () => {
+describe("WagerTransaction.create - validação", () => {
   test("nasce PENDING", () => {
     expect(tx().status).toBe(WagerTransactionStatus.Pending);
   });
@@ -50,8 +50,8 @@ describe("WagerTransaction.create — validação", () => {
   });
 });
 
-describe("WagerTransaction — máquina de estados", () => {
-  test("PENDING → PROCESSED guarda referência, data e saldo observado", () => {
+describe("WagerTransaction - máquina de estados", () => {
+  test("PENDING -> PROCESSED guarda referência, data e saldo observado", () => {
     const t = tx();
     t.markProcessed("ref-id", at(1), brl("75.00"));
     expect(t.status).toBe(WagerTransactionStatus.Processed);
@@ -79,11 +79,11 @@ describe("WagerTransaction — máquina de estados", () => {
     t.markPendingReference(T0);
     expect(t.status).toBe(WagerTransactionStatus.PendingReference);
     expect(t.referenceAttempts).toBe(1);
-    expect(t.nextReferenceCheckAt).toEqual(at(2)); // base 2s
+    expect(t.nextReferenceCheckAt).toEqual(at(2));
 
     t.markPendingReference(at(2));
     expect(t.referenceAttempts).toBe(2);
-    expect(t.nextReferenceCheckAt).toEqual(at(2 + 4)); // 2s * 2^1
+    expect(t.nextReferenceCheckAt).toEqual(at(2 + 4));
 
     t.markPendingReference(at(6));
     expect(t.nextReferenceCheckAt).toEqual(at(6 + 8));
@@ -102,7 +102,7 @@ describe("WagerTransaction — máquina de estados", () => {
   });
 });
 
-describe("WagerTransaction — consultas de domínio", () => {
+describe("WagerTransaction - consultas de domínio", () => {
   test("affectsBalance é false apenas para LOSS", () => {
     expect(tx({ kind: K.Loss }).affectsBalance()).toBe(false);
     expect(tx({ kind: K.Bet }).affectsBalance()).toBe(true);
@@ -138,7 +138,7 @@ describe("WagerTransaction — consultas de domínio", () => {
   });
 });
 
-describe("Idempotência — payloadHash", () => {
+describe("Idempotência - payloadHash", () => {
   const fields: WagerBusinessFields = {
     providerId: "provider-a",
     externalTransactionId: "transaction-123",

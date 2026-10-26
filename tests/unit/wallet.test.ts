@@ -37,7 +37,7 @@ describe("Wallet.open", () => {
   });
 });
 
-describe("Wallet — débito e crédito", () => {
+describe("Wallet - débito e crédito", () => {
   test("débito reduz saldo, devolve lançamento consistente e incrementa version", () => {
     const wallet = openWallet("100.00");
     const entry = wallet.debit({ transactionId: "t1", money: brl("80.00"), at: at(1) });

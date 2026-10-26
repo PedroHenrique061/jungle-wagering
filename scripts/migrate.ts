@@ -1,12 +1,6 @@
 import { MikroORM } from "@mikro-orm/postgresql";
 import { createOrmConfig } from "@/infrastructure/persistence/mikro-orm.config";
 
-/**
- * bun run db:migrate   → aplica as pendentes
- * bun run db:rollback  → desfaz a última
- * bun run db:status    → lista executadas e pendentes
- * bun run db:reset     → desfaz todas e reaplica (prova que o down é completo)
- */
 const command = process.argv[2] ?? "up";
 const orm = await MikroORM.init(createOrmConfig());
 const migrator = orm.getMigrator();

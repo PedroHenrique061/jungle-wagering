@@ -25,11 +25,6 @@ export function toWalletView(wallet: Wallet): WalletView {
   return { id: wallet.id, playerId: wallet.playerId, balance: wallet.balance.toJSON(), version: wallet.version };
 }
 
-/**
- * Cria a wallet. Saldo inicial > 0 gera a transação interna OPENING e o lançamento CREDIT
- * na MESMA transação SQL (o trigger deferido recusaria wallet com saldo sem ledger).
- * Duplicidade (player + moeda) é garantida pela UNIQUE do banco, inclusive sob concorrência.
- */
 export class CreateWallet {
   constructor(
     private readonly uow: UnitOfWork,

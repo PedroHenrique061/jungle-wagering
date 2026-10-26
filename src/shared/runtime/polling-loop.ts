@@ -2,19 +2,12 @@ import type { Logger } from "../observability/logger";
 
 export interface PollingLoopOptions {
   name: string;
-  /** Uma iteração. Retorna true se houve trabalho (repete já) ou false (espera `idleMs`). */
   tick: (signal: AbortSignal) => Promise<boolean>;
   idleMs: number;
   errorBackoffMs?: number;
   logger: Logger;
 }
 
-/**
- * Laço de background com parada graciosa:
- * - `stop()` sinaliza o AbortSignal (cancela long polls e esperas) e AGUARDA a iteração em curso
- *   terminar — trabalho iniciado é concluído, não interrompido no meio de uma transação;
- * - erro numa iteração não derruba o laço: loga e espera `errorBackoffMs` antes de tentar de novo.
- */
 export class PollingLoop {
   private running = false;
   private abort = new AbortController();
@@ -59,7 +52,6 @@ export class PollingLoop {
   }
 }
 
-/** Espera interrompível: resolve cedo quando o sinal é abortado. */
 export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve();

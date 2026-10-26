@@ -13,21 +13,6 @@ import {
 } from "@/wagering/application/errors";
 import { InsufficientFundsError, InvalidTransactionStateError } from "@/wagering/domain/errors";
 
-/**
- * Mapeamento ÚNICO de erros para HTTP, igual em todos os endpoints:
- *
- * | Situação                                   | Status | retryable |
- * | ------------------------------------------ | ------ | --------- |
- * | payload inválido / header ausente          | 400    | false     |
- * | recurso inexistente (consultas)            | 404    | false     |
- * | conflito de idempotência / duplicidade     | 409    | false     |
- * | rejeição por regra de negócio              | 422    | false     |
- * | aceite com processamento pendente          | 202    | —         |  (resposta de sucesso, não erro)
- * | falha transitória (banco/fila, lock)       | 503    | true      |  + Retry-After
- * | erro inesperado / permanente               | 500    | false     |
- *
- * O provedor decide se reenvia olhando status + `retryable` + `code`, sem interpretar mensagem.
- */
 @Catch()
 export class HttpErrorFilter implements ExceptionFilter {
   constructor(@Inject(LOGGER) private readonly logger: Logger) {}
@@ -86,14 +71,12 @@ function classify(error: unknown): Classified {
     return { status: 500, code: error.code, message: "Internal error", retryable: false };
   }
   if (error instanceof InsufficientFundsError) return client(422, error.code, error.message);
-  // Demais erros de domínio vêm de validação de entrada (Money, kind, referência…).
   if (error instanceof DomainError) return client(400, error.code, error.message);
 
   if (error instanceof HttpException) {
     const status = error.getStatus();
     return { status, code: status === 404 ? "ROUTE_NOT_FOUND" : `HTTP_${status}`, message: error.message, retryable: status >= 500 };
   }
-  // body-parser: JSON malformado ou corpo grande demais.
   const parserStatus = (error as { status?: unknown; type?: unknown })?.status;
   if (typeof parserStatus === "number" && parserStatus >= 400 && parserStatus < 500) {
     return client(parserStatus, "INVALID_BODY", "Request body could not be parsed");

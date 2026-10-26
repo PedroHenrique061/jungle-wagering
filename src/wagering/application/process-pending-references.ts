@@ -12,19 +12,6 @@ export interface ProcessPendingReferencesOptions {
   clock?: () => Date;
 }
 
-/**
- * Worker de PENDING_REFERENCE (seção 7.1). Cada transação vencida é reavaliada na sua própria
- * transação SQL:
- *
- *   claim (FOR UPDATE SKIP LOCKED) → lock da wallet → settleAndPersist(isNew = false)
- *
- * - Várias instâncias rodam o worker ao mesmo tempo sem pegar a mesma linha (SKIP LOCKED).
- * - Referência chegou → aplica normalmente. Ainda ausente → reagenda com backoff exponencial.
- * - Tentativas esgotadas → REJECTED/REFERENCE_NOT_FOUND + WagerTransactionRejected na outbox.
- *
- * Ordem de locks (transação → wallet) não conflita com a entrada HTTP/fila (wallet → insert):
- * a entrada só toca linhas pendentes via `wakeDependents`, que usa SKIP LOCKED e nunca espera.
- */
 export class ProcessPendingReferences {
   private readonly clock: () => Date;
 
@@ -37,7 +24,6 @@ export class ProcessPendingReferences {
     this.clock = options.clock ?? (() => new Date());
   }
 
-  /** Processa até `max` transações vencidas. Retorna quantas foram reavaliadas. */
   async processBatch(max: number, signal?: AbortSignal): Promise<number> {
     let processed = 0;
     while (processed < max && !signal?.aborted) {
@@ -48,7 +34,6 @@ export class ProcessPendingReferences {
     return processed;
   }
 
-  /** Reavalia a próxima transação vencida. Retorna false se não havia nenhuma. */
   async processNext(): Promise<boolean> {
     const started = performance.now();
     const result = await withTransientRetry(
@@ -62,7 +47,6 @@ export class ProcessPendingReferences {
           if (!tx) return undefined;
           const wallet = await repos.wallets.lockById(tx.walletId);
           if (!wallet) {
-            // Impossível com a FK; se acontecer é corrupção — não adianta repetir.
             throw new PermanentInfrastructureError(`wallet ${tx.walletId} of pending transaction ${tx.id} not found`);
           }
           const outcome: SettlementOutcome = await settleAndPersist(repos, tx, wallet, {

@@ -26,7 +26,6 @@ import { InvalidTransactionStateError } from "@/wagering/domain/errors";
 export const WAGER_CONSUMER_NAME = "wager-transactions-consumer";
 export const WAGER_MESSAGE_TYPE = "WagerTransactionRequested";
 
-/** Contrato da mensagem da fila (seção 10). */
 export interface WagerTransactionRequestedMessage {
   messageId: string;
   type: typeof WAGER_MESSAGE_TYPE;
@@ -35,7 +34,6 @@ export interface WagerTransactionRequestedMessage {
   data: WagerTransactionPayload & { idempotencyKey: unknown };
 }
 
-/** O mesmo use case da entrada HTTP (só o que o consumidor precisa dele). */
 export interface WagerSubmitter {
   execute(command: SubmitWagerCommand): Promise<SubmitWagerOutcome>;
 }
@@ -43,25 +41,16 @@ export interface WagerSubmitter {
 export interface ConsumerOptions {
   queueUrl: string;
   dlqUrl: string;
-  /** Igual ao maxReceiveCount da redrive policy da fila. */
   maxReceiveCount: number;
   waitTimeSeconds: number;
   visibilityTimeoutSeconds: number;
   maxMessages?: number;
-  /** Teto do backoff de visibilidade em erro transitório. */
   maxBackoffSeconds?: number;
-  /** Injeção de falha para testes: true = "morre" depois do commit e antes do ack. */
   crashBeforeAck?: (message: Message) => boolean;
 }
 
 export type ErrorClass = "business" | "transient" | "permanent";
 
-/**
- * Classificação de erros da fila:
- * - business: regra de negócio ou payload inválido — repetir dá o mesmo resultado → ack;
- * - transient: banco/fila indisponível, lock timeout, deadlock → nova entrega com backoff;
- * - permanent: mensagem ilegível ou erro inesperado → DLQ explícita (auditável).
- */
 export function classifyError(error: unknown): ErrorClass {
   if (isTransient(error)) return "transient";
   if (error instanceof InvalidTransactionStateError) return "permanent";
@@ -81,18 +70,6 @@ class MalformedMessageError extends Error {
   readonly code = "MALFORMED_MESSAGE";
 }
 
-/**
- * Consumidor da fila `wager-transactions.fifo`.
- *
- * - Reutiliza o MESMO use case da entrada HTTP (`SubmitWagerTransaction`), com inbox persistente
- *   por (consumerName, messageId) dentro da mesma transação SQL do efeito financeiro.
- * - `DeleteMessage` (ack) só DEPOIS do commit. Morreu entre commit e ack → redelivery → a inbox
- *   reconhece a mensagem → nenhum efeito duplicado → ack.
- * - Ordem: mensagens do mesmo MessageGroupId (wallet) são processadas em sequência; grupos
- *   diferentes em paralelo. A ordem do FIFO é otimização; o banco garante as invariantes.
- * - Shutdown: o long poll é cancelado; mensagens já iniciadas terminam; as recebidas e ainda
- *   não iniciadas têm a visibilidade devolvida (VisibilityTimeout = 0) para outra instância.
- */
 export class WagerTransactionConsumer {
   private readonly maxMessages: number;
   private readonly maxBackoffSeconds: number;
@@ -108,7 +85,6 @@ export class WagerTransactionConsumer {
     this.maxBackoffSeconds = options.maxBackoffSeconds ?? 60;
   }
 
-  /** Um ciclo de long poll + processamento. Retorna quantas mensagens recebeu. */
   async pollOnce(signal?: AbortSignal): Promise<number> {
     if (signal?.aborted) return 0;
     const response = await this.sqs.send(
@@ -175,7 +151,7 @@ export class WagerTransactionConsumer {
       return;
     }
 
-    // Commit feito. A partir daqui, perder o ack só causa redelivery — que a inbox absorve.
+    // daqui em diante o commit já aconteceu: perder o ack só gera redelivery, que a inbox descarta
     if (this.options.crashBeforeAck?.(message)) {
       log.warn("simulated crash after commit and before ack", { transactionId: outcome.transactionId });
       return;
@@ -195,7 +171,7 @@ export class WagerTransactionConsumer {
 
     if (kind === "transient") {
       if (receiveCount >= this.options.maxReceiveCount) {
-        // Não fazemos ack: a redrive policy move a mensagem para a DLQ nesta entrega.
+        // sem ack: na próxima entrega a redrive policy move a mensagem para a DLQ
         this.metrics.dlqMessage("retries_exhausted");
         log.error("transient failure on last attempt, message goes to DLQ via redrive", { code, error });
       } else {
@@ -209,7 +185,6 @@ export class WagerTransactionConsumer {
     await this.sendToDlq(message, code, error);
   }
 
-  /** Erro permanente: copia para a DLQ com o motivo e remove da fila principal. */
   private async sendToDlq(message: Message, reason: string, error: unknown): Promise<void> {
     const log = this.logger.child({ sqsMessageId: message.MessageId });
     try {
@@ -230,7 +205,6 @@ export class WagerTransactionConsumer {
         }),
       );
     } catch (sendError) {
-      // Sem DLQ não removemos: a redrive policy ainda garante o destino depois das tentativas.
       log.error("could not move message to DLQ, leaving it for redelivery", { reason, error: sendError });
       return;
     }
@@ -243,7 +217,6 @@ export class WagerTransactionConsumer {
     try {
       await this.sqs.send(new DeleteMessageCommand({ QueueUrl: this.options.queueUrl, ReceiptHandle: message.ReceiptHandle }));
     } catch (error) {
-      // Seguro: a mensagem volta e a inbox evita efeito duplicado.
       log.warn("ack failed, message will be redelivered and deduplicated", { error });
     }
   }
@@ -266,7 +239,6 @@ export class WagerTransactionConsumer {
     }
   }
 
-  /** 2, 4, 8, 16 … segundos, até o teto. */
   private backoffSeconds(receiveCount: number): number {
     return Math.min(2 ** Math.max(1, receiveCount), this.maxBackoffSeconds);
   }

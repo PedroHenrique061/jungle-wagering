@@ -67,7 +67,7 @@ describe("POST /wallets", () => {
     expect(ledger.body.items[0].direction).toBe("CREDIT");
   });
 
-  test("wallet duplicada (player + moeda) → 409", async () => {
+  test("wallet duplicada (player + moeda) -> 409", async () => {
     const wallet = await createWallet("0.00");
     const dup = await call("POST", "/wallets", {
       playerId: wallet.playerId,
@@ -82,27 +82,26 @@ describe("POST /wallets", () => {
     ["notação científica", { amount: "1e3", currency: "BRL" }],
     ["três casas", { amount: "1.001", currency: "BRL" }],
     ["negativo", { amount: "-1.00", currency: "BRL" }],
-  ])("payload inválido (%s) → 400", async (_label, initialBalance) => {
+  ])("payload inválido (%s) -> 400", async (_label, initialBalance) => {
     const res = await call("POST", "/wallets", { playerId: uuidv7(), initialBalance });
     expect(res.status).toBe(400);
     expect(res.body.error.retryable).toBe(false);
   });
 
-  test("JSON malformado → 400", async () => {
+  test("JSON malformado -> 400", async () => {
     const res = await call("POST", "/wallets", "{not json");
     expect(res.status).toBe(400);
   });
 });
 
 describe("POST /wagering/transactions", () => {
-  test("BET processada → 201 com saldo; replay idêntico → 200 com o mesmo resultado", async () => {
+  test("BET processada -> 201 com saldo; replay idêntico -> 200 com o mesmo resultado", async () => {
     const wallet = await createWallet("1000.00");
     const bet = wager(wallet, "BET", "25.00");
     const first = await submit(bet);
     expect(first.status).toBe(201);
     expect(first.body).toMatchObject({ status: "PROCESSED", balance: { amount: "975.00", currency: "BRL" }, idempotentReplay: false });
 
-    // Saldo muda depois; o replay devolve o saldo observado NAQUELE momento.
     await submit(wager(wallet, "WIN", "100.00"));
     const replay = await submit(bet);
     expect(replay.status).toBe(200);
@@ -110,7 +109,7 @@ describe("POST /wagering/transactions", () => {
     expect(await ledgerSum(wallet.id)).toBe("1075.00");
   });
 
-  test("mesma Idempotency-Key com payload diferente → 409 (conflito, não replay)", async () => {
+  test("mesma Idempotency-Key com payload diferente -> 409 (conflito, não replay)", async () => {
     const wallet = await createWallet("100.00");
     const bet = wager(wallet, "BET", "10.00");
     await submit(bet);
@@ -121,7 +120,7 @@ describe("POST /wagering/transactions", () => {
     expect((await call("GET", `/wallets/${wallet.id}`)).body.balance.amount).toBe("90.00");
   });
 
-  test("mesmo externalTransactionId com outra chave → 409", async () => {
+  test("mesmo externalTransactionId com outra chave -> 409", async () => {
     const wallet = await createWallet("100.00");
     const bet = wager(wallet, "BET", "10.00");
     await submit(bet);
@@ -130,7 +129,7 @@ describe("POST /wagering/transactions", () => {
     expect(res.body.error.code).toBe("EXTERNAL_TRANSACTION_ID_CONFLICT");
   });
 
-  test("saldo insuficiente → 422 INSUFFICIENT_FUNDS, sem ledger", async () => {
+  test("saldo insuficiente -> 422 INSUFFICIENT_FUNDS, sem ledger", async () => {
     const wallet = await createWallet("10.00");
     const res = await submit(wager(wallet, "BET", "25.00"));
     expect(res.status).toBe(422);
@@ -138,7 +137,7 @@ describe("POST /wagering/transactions", () => {
     expect((await call("GET", `/wallets/${wallet.id}/ledger`)).body.items).toHaveLength(1);
   });
 
-  test("LOSS → 201 sem mover saldo; version inalterada", async () => {
+  test("LOSS -> 201 sem mover saldo; version inalterada", async () => {
     const wallet = await createWallet("50.00");
     const res = await submit(wager(wallet, "LOSS", "20.00"));
     expect(res.status).toBe(201);
@@ -146,7 +145,7 @@ describe("POST /wagering/transactions", () => {
     expect(after.body).toMatchObject({ balance: { amount: "50.00" }, version: 1 });
   });
 
-  test("REFUND antes da BET → 202 PENDING_REFERENCE; BET depois não é afetada", async () => {
+  test("REFUND antes da BET -> 202 PENDING_REFERENCE; BET depois não é afetada", async () => {
     const wallet = await createWallet("100.00");
     const betId = `bet-${uuidv7()}`;
     const refund = await submit(wager(wallet, "REFUND", "30.00", { referenceExternalTransactionId: betId }));
@@ -155,12 +154,11 @@ describe("POST /wagering/transactions", () => {
     const bet = await submit(wager(wallet, "BET", "30.00", { externalTransactionId: betId }));
     expect(bet.status).toBe(201);
     expect(bet.body.balance.amount).toBe("70.00");
-    // Sem o worker (Etapa 5), a REFUND continua pendente mas já foi antecipada pelo wakeDependents.
     const pending = await call("GET", `/wagering/transactions/${refund.body.transactionId}`);
     expect(pending.body.status).toBe("PENDING_REFERENCE");
   });
 
-  test("ROLLBACK de BET → crédito; segunda reversão da mesma BET → 422 REFERENCE_ALREADY_REVERSED", async () => {
+  test("ROLLBACK de BET -> crédito; segunda reversão da mesma BET -> 422 REFERENCE_ALREADY_REVERSED", async () => {
     const wallet = await createWallet("100.00");
     const betId = `bet-${uuidv7()}`;
     await submit(wager(wallet, "BET", "40.00", { externalTransactionId: betId }));
@@ -173,7 +171,7 @@ describe("POST /wagering/transactions", () => {
     expect(await ledgerSum(wallet.id)).toBe("100.00");
   });
 
-  test("wallet inexistente → 422 WALLET_NOT_FOUND", async () => {
+  test("wallet inexistente -> 422 WALLET_NOT_FOUND", async () => {
     const res = await submit(wager({ id: uuidv7(), playerId: uuidv7() }, "BET", "1.00"));
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe("WALLET_NOT_FOUND");
@@ -184,13 +182,13 @@ describe("POST /wagering/transactions", () => {
     ["kind OPENING", (w: ReturnType<typeof wager>) => submit({ ...w, body: { ...w.body, kind: "OPENING" } })],
     ["REFUND sem referência", (w: ReturnType<typeof wager>) => submit({ ...w, body: { ...w.body, kind: "REFUND" } })],
     ["money como number", (w: ReturnType<typeof wager>) => submit({ ...w, body: { ...w.body, money: { amount: 1, currency: "BRL" } } })],
-  ])("%s → 400", async (_label, send) => {
+  ])("%s -> 400", async (_label, send) => {
     const wallet = await createWallet("10.00");
     const res = await send(wager(wallet, "BET", "1.00"));
     expect(res.status).toBe(400);
   });
 
-  test("moeda diferente da wallet → 422 CURRENCY_MISMATCH", async () => {
+  test("moeda diferente da wallet -> 422 CURRENCY_MISMATCH", async () => {
     const wallet = await createWallet("10.00");
     const w = wager(wallet, "BET", "1.00");
     const res = await submit({ ...w, body: { ...w.body, money: { amount: "1.00", currency: "USD" } } });

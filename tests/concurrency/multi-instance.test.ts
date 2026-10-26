@@ -16,11 +16,6 @@ import {
   type SpawnedInstance,
 } from "./support/load";
 
-/**
- * Seção 13, itens 4 e 8: TRÊS PROCESSOS do sistema operacional rodando `src/main.ts`
- * (HTTP + consumidor SQS + outbox publisher + worker de referências), sobre o mesmo
- * PostgreSQL e as mesmas filas (isoladas para este teste no LocalStack).
- */
 let db: TestDatabase;
 let queues: TestQueues;
 let instances: SpawnedInstance[] = [];
@@ -58,11 +53,10 @@ async function pendingWork(walletId: string) {
   return row!;
 }
 
-describe("seção 13 — múltiplos processos", () => {
+describe("seção 13 - múltiplos processos", () => {
   test("4. três processos disputam a mesma wallet por HTTP e pela fila, com duplicatas e referências fora de ordem", async () => {
     const wallet = await createWallet(urls()[0]!, "1000.00");
 
-    // a) 10 REFUNDs chegam ANTES das BETs que referenciam (ficam PENDING_REFERENCE).
     const lateBets = Array.from({ length: 10 }, () => `late-bet-${uuidv7()}`);
     const refunds = await Promise.all(
       lateBets.map((betId, i) =>
@@ -71,11 +65,9 @@ describe("seção 13 — múltiplos processos", () => {
     );
     expect(refunds.every((r) => r.status === 202)).toBe(true);
 
-    // b) 150 apostas por HTTP, cada uma enviada às TRÊS instâncias ao mesmo tempo (450 requisições).
     const httpBets = Array.from({ length: 150 }, () => wagerBody(wallet, "BET", "1.00"));
     const httpResponses = await Promise.all(httpBets.flatMap((bet) => urls().map((url) => postWager(url, bet))));
 
-    // c) 30 apostas pela fila, cada mensagem publicada DUAS vezes; mais as 10 BETs atrasadas.
     const sqsBets = Array.from({ length: 30 }, () => wagerBody(wallet, "BET", "1.00"));
     const lateBetBodies = lateBets.map((betId) => wagerBody(wallet, "BET", "5.00", betId));
     for (const bet of [...sqsBets, ...lateBetBodies]) {
@@ -88,7 +80,6 @@ describe("seção 13 — múltiplos processos", () => {
       await queues.send(message, wallet.id);
     }
 
-    // Tudo drenado: fila vazia, nenhuma transação pendente, outbox publicada.
     await eventually(async () => (await queues.count(queues.queueUrl)) === 0, 60_000, "transactions queue drained");
     await eventually(
       async () => {
@@ -99,14 +90,12 @@ describe("seção 13 — múltiplos processos", () => {
       "pending references processed and outbox published",
     );
 
-    // Cada aposta HTTP: exatamente um 201 entre as três instâncias, os outros são replay.
     for (let i = 0; i < httpBets.length; i++) {
       const trio = httpResponses.slice(i * 3, i * 3 + 3);
       expect(trio.filter((r) => r.status === 201)).toHaveLength(1);
       expect(new Set(trio.map((r) => r.body.transactionId)).size).toBe(1);
     }
 
-    // 1000 − 150 (HTTP) − 30 (fila) − 50 (BETs atrasadas) + 50 (REFUNDs) = 820
     const inv = await walletInvariants(db, wallet.id);
     expect(inv).toMatchObject({
       balance: "820.00",
@@ -118,34 +107,31 @@ describe("seção 13 — múltiplos processos", () => {
     expect(await queues.count(queues.dlqUrl)).toBe(0);
   }, 120_000);
 
-  test("8. reinício: SIGKILL numa instância e SIGTERM em outra no meio da carga → consistência final", async () => {
+  test("8. reinício: SIGKILL numa instância e SIGTERM em outra no meio da carga -> consistência final", async () => {
     const wallet = await createWallet(urls()[0]!, "500.00");
     const bets = Array.from({ length: 200 }, () => wagerBody(wallet, "BET", "1.00"));
 
     let completed = 0;
     const load = Promise.all(
       bets.map(async (bet, i) => {
-        await Bun.sleep(Math.floor(i / 10) * 40); // carga espalhada no tempo
+        await Bun.sleep(Math.floor(i / 10) * 40);
         const response = await postWagerWithRetry(urls(), bet, { start: i });
         completed++;
         return response;
       }),
     );
 
-    // No meio da carga: uma instância "cai" (SIGKILL) e outra é desligada graciosamente (SIGTERM).
     await eventually(async () => completed >= 50, 30_000, "first 50 requests answered");
     const [killed, terminated] = [instances[1]!, instances[2]!];
     await Promise.all([stopInstance(killed, "SIGKILL"), stopInstance(terminated, "SIGTERM")]);
 
-    // Reinício nas mesmas portas (como um orquestrador faria).
     instances[1] = await spawnInstance(killed.port, env);
     instances[2] = await spawnInstance(terminated.port, env);
 
     const responses = await load;
     expect(responses.every((r) => r.status === 201 || r.status === 200)).toBe(true);
-    expect(responses.some((r) => r.attempts > 1)).toBe(true); // houve requisições afetadas pela queda
+    expect(responses.some((r) => r.attempts > 1)).toBe(true);
 
-    // Toda resposta 2xx corresponde a exatamente uma transação no banco — nenhuma perdida, nenhuma duplicada.
     const rows = await db.sql<{ id: string; external_transaction_id: string }>(
       `SELECT id, external_transaction_id FROM wager_transactions WHERE wallet_id = ? AND kind = 'BET'`,
       [wallet.id],
@@ -158,7 +144,6 @@ describe("seção 13 — múltiplos processos", () => {
     expect(inv).toMatchObject({ balance: "300.00", debits: 200, statuses: { PROCESSED: 200 } });
     expectLedgerConsistent(inv);
 
-    // Depois do reinício, a reconciliação de qualquer instância confirma a consistência.
     const rec = await fetch(`${urls()[1]}/wallets/${wallet.id}/reconciliation`, { method: "POST" });
     expect(((await rec.json()) as { consistent: boolean }).consistent).toBe(true);
   }, 120_000);

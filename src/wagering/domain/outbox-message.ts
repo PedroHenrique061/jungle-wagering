@@ -12,11 +12,6 @@ export interface OutboxMessageState {
   publishedAt?: Date;
 }
 
-/**
- * Evento de integração pendente de publicação. Gravado na mesma transação SQL
- * do efeito financeiro; publicado depois por um worker (at-least-once).
- * `id` = eventId do envelope, para o consumidor deduplicar publicações repetidas.
- */
 export class OutboxMessage {
   private constructor(
     public readonly id: string,
@@ -31,7 +26,6 @@ export class OutboxMessage {
 
   static enqueue(event: IntegrationEvent<unknown>): OutboxMessage {
     const envelope = event.toJSON();
-    // Garante que o payload é JSON puro (sem Money, Date etc.) antes de ir para o banco.
     const payload = JSON.parse(JSON.stringify(envelope)) as Record<string, unknown>;
     return new OutboxMessage(event.eventId, event.aggregateId, event.eventType, Object.freeze(payload), event.occurredAt, 0);
   }
@@ -68,18 +62,16 @@ export class OutboxMessage {
   }
 
   markPublished(at: Date): void {
-    if (this._publishedAt) return; // publicar de novo é seguro; o primeiro registro vence
+    if (this._publishedAt) return;
     this._publishedAt = at;
     this._nextAttemptAt = undefined;
   }
 
-  /** Incrementa attempts e calcula o próximo nextAttemptAt (backoff exponencial com teto). */
   scheduleRetry(now: Date, policy: BackoffPolicy = OUTBOX_RETRY_POLICY): void {
     this._attempts += 1;
     this._nextAttemptAt = nextAttemptAt(policy, this._attempts - 1, now);
   }
 
-  /** Atraso entre a ocorrência e agora — base da métrica de outbox lag. */
   lagMs(now: Date): number {
     return Math.max(0, now.getTime() - this.occurredAt.getTime());
   }

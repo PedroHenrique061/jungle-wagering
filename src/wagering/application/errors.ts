@@ -1,9 +1,3 @@
-/**
- * Erros de aplicação/infraestrutura, classificados para a política de retry:
- *
- * - transient: pode dar certo se repetir (rede, lock timeout, deadlock, serialização, conflito de versão).
- * - permanent: repetir não adianta (violação de integridade inesperada, payload que o banco recusa).
- */
 export abstract class ApplicationError extends Error {
   abstract readonly code: string;
   abstract readonly transient: boolean;
@@ -14,7 +8,6 @@ export abstract class ApplicationError extends Error {
   }
 }
 
-/** UPDATE condicional por versão não afetou linhas. */
 export class ConcurrencyConflictError extends ApplicationError {
   readonly code = "CONCURRENCY_CONFLICT";
   readonly transient = true;
@@ -34,7 +27,6 @@ export class UniqueViolationError extends ApplicationError {
   }
 }
 
-/** Banco ou fila indisponível, timeout, deadlock, serialização. */
 export class TransientInfrastructureError extends ApplicationError {
   readonly code = "TRANSIENT_INFRASTRUCTURE";
   readonly transient = true;
@@ -43,7 +35,6 @@ export class TransientInfrastructureError extends ApplicationError {
   }
 }
 
-/** Violação de integridade inesperada (trigger/CHECK). Bug ou dado corrompido: não adianta repetir. */
 export class PermanentInfrastructureError extends ApplicationError {
   readonly code = "PERMANENT_INFRASTRUCTURE";
   readonly transient = false;
@@ -52,9 +43,6 @@ export class PermanentInfrastructureError extends ApplicationError {
   }
 }
 
-// ---------------------------------------------------------------- erros de requisição/negócio da aplicação
-
-/** Requisição malformada (header ausente, corpo inválido). HTTP 400; na fila: erro de negócio (ack). */
 export class InvalidRequestError extends ApplicationError {
   readonly code = "INVALID_REQUEST";
   readonly transient = false;
@@ -63,7 +51,6 @@ export class InvalidRequestError extends ApplicationError {
   }
 }
 
-/** Mesma Idempotency-Key com payload diferente: conflito, não replay. HTTP 409. */
 export class IdempotencyConflictError extends ApplicationError {
   readonly code = "IDEMPOTENCY_KEY_CONFLICT";
   readonly transient = false;
@@ -76,7 +63,6 @@ export class IdempotencyConflictError extends ApplicationError {
   }
 }
 
-/** Mesmo (provider, externalTransactionId) já registrado sob outra Idempotency-Key. HTTP 409. */
 export class ExternalTransactionConflictError extends ApplicationError {
   readonly code = "EXTERNAL_TRANSACTION_ID_CONFLICT";
   readonly transient = false;
@@ -105,10 +91,6 @@ export class ResourceNotFoundError extends ApplicationError {
   }
 }
 
-/**
- * Regra de negócio que impede até de registrar a transação (ex.: wallet inexistente — a FK não
- * permitiria persistir). HTTP 422 com failureCode; na fila: erro de negócio (ack).
- */
 export class UnprocessableTransactionError extends ApplicationError {
   readonly code = "UNPROCESSABLE_TRANSACTION";
   readonly transient = false;

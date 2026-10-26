@@ -25,24 +25,15 @@ export interface OpenWalletProps {
   id?: string;
   playerId: string;
   initialBalance: Money;
-  /** Id da transação interna OPENING; obrigatório se initialBalance > 0. */
   openingTransactionId?: string;
   now: Date;
 }
 
 export interface OpenedWallet {
   wallet: Wallet;
-  /** Presente apenas quando o saldo inicial é > 0. */
   openingEntry?: WalletLedgerEntry;
 }
 
-/**
- * Aggregate root. Toda mudança de saldo passa por `debit`/`credit`, que devolvem
- * o lançamento do ledger correspondente: não existe forma de alterar saldo sem ledger.
- *
- * `version` começa em 1 e só incrementa quando o saldo muda — é a coluna de
- * optimistic locking e também o número de sequência do saldo nos eventos.
- */
 export class Wallet {
   private constructor(
     public readonly id: string,
@@ -79,7 +70,6 @@ export class Wallet {
     return { wallet, openingEntry };
   }
 
-  /** Reconstrução a partir da persistência — não revalida transições. */
   static rehydrate(state: WalletState): Wallet {
     return new Wallet(
       state.id,
@@ -109,7 +99,6 @@ export class Wallet {
     return !this._balance.isLessThan(money);
   }
 
-  /** @throws InsufficientFundsError — o saldo nunca fica negativo. */
   debit(movement: BalanceMovement): WalletLedgerEntry {
     if (!this.canDebit(movement.money)) throw new InsufficientFundsError(this.id);
     return this.apply(LedgerDirection.Debit, movement);
@@ -136,11 +125,11 @@ export class Wallet {
     };
   }
 
-  /** Cria o lançamento ANTES de mutar: se a factory lançar, a wallet fica intacta. */
   private apply(direction: LedgerDirection, movement: BalanceMovement): WalletLedgerEntry {
     const before = this._balance;
     const after =
       direction === LedgerDirection.Credit ? before.add(movement.money) : before.subtract(movement.money);
+    // o lançamento é criado antes de mexer no saldo: se a validação falhar, a wallet não muda
     const entry = WalletLedgerEntry.create({
       id: movement.entryId,
       walletId: this.id,

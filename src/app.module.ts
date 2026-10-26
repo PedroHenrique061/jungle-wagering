@@ -31,7 +31,6 @@ import { READ_REPOSITORIES, UNIT_OF_WORK, type ReadRepositories, type UnitOfWork
 import { SubmitWagerTransaction } from "./wagering/application/submit-wager-transaction";
 import { WalletQueries } from "./wagering/application/wallet-queries";
 
-/** Fecha conexões no shutdown (SIGTERM → app.close()). */
 @Injectable()
 class ResourceLifecycle implements OnApplicationShutdown {
   constructor(
@@ -53,10 +52,6 @@ export interface AppModuleOptions {
   metrics?: PrometheusMetrics;
 }
 
-/**
- * Composição explícita: todos os providers por factory + token, sem depender de
- * `emitDecoratorMetadata` para resolver tipos — funciona igual no Bun e no Node.
- */
 @Module({})
 export class AppModule {
   static register(options: AppModuleOptions): DynamicModule {
@@ -127,7 +122,6 @@ export class AppModule {
   }
 }
 
-/** Configuração HTTP comum a main.ts e aos testes. */
 export function configureApp(app: INestApplication): INestApplication {
   app.use(correlationIdMiddleware);
   app.enableShutdownHooks();

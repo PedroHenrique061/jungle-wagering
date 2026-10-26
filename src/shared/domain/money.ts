@@ -1,6 +1,5 @@
 import { CurrencyMismatchError, InvalidMoneyError } from "./domain-error";
 
-/** Contrato de entrada/saída: amount sempre string decimal com 2 casas. */
 export interface MoneyProps {
   amount: string;
   currency: string;
@@ -9,31 +8,19 @@ export interface MoneyProps {
 const SCALE = 2;
 const FACTOR = 10n ** BigInt(SCALE);
 
-/** Contrato externo: só dígitos, opcionalmente ponto + 1..2 casas. Rejeita sinal, expoente, NaN, Infinity, espaços. */
 const INPUT_PATTERN = /^(0|[1-9]\d*)(?:\.(\d{1,2}))?$/;
-/** Persistência (NUMERIC lido como string): aceita sinal, escala <= 2. */
 const PERSISTED_PATTERN = /^(-?)(\d+)(?:\.(\d{1,2}))?$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
-/**
- * Value object monetário imutável.
- *
- * Representação interna: `bigint` em unidades mínimas (centavos, escala fixa 2).
- * Soma/subtração de inteiros é exata — não existe arredondamento possível — e
- * o domínio não depende de nenhuma biblioteca nem de tipos do ORM.
- *
- * - `from` é o único caminho para contratos externos e rejeita negativos.
- * - Negativos só surgem internamente (`negate`, `subtract`, diferença de reconciliação).
- */
 export class Money {
   private constructor(
+    // centavos em bigint: soma e subtração ficam exatas, sem arredondamento
     private readonly minorUnits: bigint,
     public readonly currency: string,
   ) {
     Object.freeze(this);
   }
 
-  /** Entrada de contrato externo (API, fila). */
   static from(props: MoneyProps): Money {
     if (props === null || typeof props !== "object") {
       throw new InvalidMoneyError("money must be an object");
@@ -52,7 +39,6 @@ export class Money {
     return new Money(Money.toMinor(integer!, fraction, false), Money.assertCurrency(currency));
   }
 
-  /** Reidratação a partir de coluna NUMERIC(…, 2) lida como string. */
   static fromPersistence(amount: string, currency: string): Money {
     const match = typeof amount === "string" ? PERSISTED_PATTERN.exec(amount) : null;
     if (!match) {
@@ -101,7 +87,6 @@ export class Money {
     return this.currency === other.currency && this.minorUnits === other.minorUnits;
   }
 
-  /** String decimal com escala fixa de 2 casas (ex.: "25.00", "-3.10"). */
   get amount(): string {
     const negative = this.minorUnits < 0n;
     const abs = negative ? -this.minorUnits : this.minorUnits;

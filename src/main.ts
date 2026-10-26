@@ -5,7 +5,6 @@ import { AppModule, configureApp } from "./app.module";
 import { loadConfig } from "./config";
 import { JsonLogger, type Logger } from "./shared/observability/logger";
 
-/** Encaminha os logs internos do Nest para o logger JSON. */
 class NestLoggerAdapter implements LoggerService {
   constructor(private readonly logger: Logger) {}
   log(message: unknown, context?: string) {
@@ -32,7 +31,6 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule.register({ config, logger }), {
     logger: new NestLoggerAdapter(logger),
   });
-  // correlation id + SIGTERM/SIGINT → hooks de shutdown (workers drenam, conexões fecham).
   configureApp(app);
   await app.listen(config.port);
   logger.info("http server listening", { port: config.port });

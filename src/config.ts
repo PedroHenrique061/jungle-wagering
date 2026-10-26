@@ -13,15 +13,12 @@ export interface AppConfig {
   };
   sqs: {
     transactionsQueueUrl: string;
-    /** DLQ da fila de entrada: destino explícito de mensagens com erro permanente. */
     dlqUrl: string;
     eventsQueueUrl: string;
-    /** Deve ser igual ao maxReceiveCount da redrive policy (infra/localstack/init-sqs.sh). */
     maxReceiveCount: number;
     waitTimeSeconds: number;
     visibilityTimeoutSeconds: number;
   };
-  /** Papéis desta instância. Por padrão todas fazem tudo; em produção podem ser separados. */
   roles: {
     http: boolean;
     consumer: boolean;

@@ -9,12 +9,10 @@ export interface IntegrationEventProps<T> {
   data: T;
 }
 
-/** Contexto de rastreio propagado da entrada (HTTP/fila) até os eventos. */
 export interface EventContext {
   correlationId: string;
   causationId?: string;
   occurredAt: Date;
-  /** Opcional: permite ids determinísticos em testes. */
   eventId?: string;
 }
 
@@ -29,11 +27,6 @@ export interface IntegrationEventEnvelope<T> {
   data: T;
 }
 
-/**
- * Envelope de evento de integração. `eventType` e `version` ficam no tipo
- * (subclasse concreta), nunca numa string solta no call site.
- * `data` só carrega JSON estável (MoneyProps, ISO strings) — nunca instâncias de domínio.
- */
 export abstract class IntegrationEvent<T> {
   abstract readonly eventType: string;
   abstract readonly version: number;
@@ -65,7 +58,6 @@ export abstract class IntegrationEvent<T> {
     };
   }
 
-  /** Envelope serializado gravado no payload da outbox. */
   toJSON(): IntegrationEventEnvelope<T> {
     const envelope: IntegrationEventEnvelope<T> = {
       eventId: this.eventId,

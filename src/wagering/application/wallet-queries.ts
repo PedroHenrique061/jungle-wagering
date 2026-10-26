@@ -7,8 +7,6 @@ import { InvalidRequestError, ResourceNotFoundError } from "./errors";
 import type { WageringMetrics } from "./metrics";
 import type { ReadRepositories, UnitOfWork } from "./ports";
 
-// ---------------------------------------------------------------- views
-
 export interface TransactionView {
   transactionId: string;
   providerId: string;
@@ -91,12 +89,6 @@ export interface ReconciliationView {
   checkedEntries: number;
 }
 
-// ---------------------------------------------------------------- cursor opaco
-
-/**
- * Cursor = base64url("v1:<walletId>:<seq>"). Opaco para o cliente, estável (seq é monotônico e
- * nunca reutilizado, e o ledger é append-only) e amarrado à wallet: não serve em outra.
- */
 export function encodeLedgerCursor(walletId: string, seq: string): string {
   return Buffer.from(`v1:${walletId}:${seq}`, "utf8").toString("base64url");
 }
@@ -114,8 +106,6 @@ export function decodeLedgerCursor(walletId: string, cursor: string): string {
   }
   return seq;
 }
-
-// ---------------------------------------------------------------- queries
 
 export const LEDGER_DEFAULT_LIMIT = 50;
 export const LEDGER_MAX_LIMIT = 200;
@@ -159,11 +149,6 @@ export class WalletQueries {
     return toTransactionView(tx);
   }
 
-  /**
-   * Compara saldo materializado com o saldo reconstruído do ledger. Lê ambos sob o lock da wallet,
-   * para que nenhuma movimentação concorrente produza uma divergência falsa.
-   * Divergência NÃO é corrigida: é logada, contada em métrica e sinalizada na resposta.
-   */
   async reconcile(walletId: string, correlationId: string): Promise<ReconciliationView> {
     const view = await this.uow.run(async (repos) => {
       const wallet = await repos.wallets.lockById(walletId);
