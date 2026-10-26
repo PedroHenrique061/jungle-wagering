@@ -12,12 +12,22 @@
     "test:integration": "bun test tests/integration --timeout 60000",
     "test:concurrency": "bun test tests/concurrency --timeout 120000",
     "infra:up": "docker compose up -d postgres localstack",
-    "infra:down": "docker compose down -v"
+    "infra:down": "docker compose down -v",
+    "db:migrate": "bun run scripts/migrate.ts up",
+    "db:rollback": "bun run scripts/migrate.ts down",
+    "db:status": "bun run scripts/migrate.ts status",
+    "db:reset": "bun run scripts/migrate.ts reset"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3",
+    "@mikro-orm/core": "^6.4",
+    "@mikro-orm/migrations": "^6.4",
+    "@mikro-orm/nestjs": "^6.1",
+    "@mikro-orm/postgresql": "^6.4",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "prom-client": "^15",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

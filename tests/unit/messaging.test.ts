@@ -14,6 +14,7 @@ import {
 } from "@/wagering/domain/events/wagering-events";
 import { T0, at, openWallet, tx } from "../support/domain-builders";
 import { WagerTransactionKind } from "@/wagering/domain/wager-transaction";
+import { LedgerDirection } from "@/wagering/domain/wallet-ledger-entry";
 
 const ctx = { correlationId: "corr-1", causationId: "msg-123", occurredAt: at(1) };
 
@@ -34,7 +35,7 @@ describe("Integration events", () => {
     expect(json.data).toEqual({
       walletId: wallet.id,
       transactionId: bet.id,
-      direction: "DEBIT",
+      direction: LedgerDirection.Debit,
       money: { amount: "25.00", currency: "BRL" },
       balanceBefore: { amount: "100.00", currency: "BRL" },
       balanceAfter: { amount: "75.00", currency: "BRL" },
