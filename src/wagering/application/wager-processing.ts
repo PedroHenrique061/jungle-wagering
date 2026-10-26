@@ -8,6 +8,7 @@ import {
   WalletBalanceChanged,
 } from "../domain/events/wagering-events";
 import { OutboxMessage } from "../domain/outbox-message";
+import type { BackoffPolicy } from "../domain/retry-policy";
 import { WagerSettlement, type SettlementOutcome } from "../domain/wager-settlement";
 import { WagerTransactionStatus, type WagerTransaction } from "../domain/wager-transaction";
 import type { Wallet } from "../domain/wallet";
@@ -29,6 +30,8 @@ export interface SettleOptions {
   correlationId?: string;
   causationId?: string;
   now: Date;
+  /** Política de retry de referência (default: REFERENCE_RETRY_POLICY do domínio). */
+  policy?: BackoffPolicy;
 }
 
 /**
@@ -60,6 +63,7 @@ export async function settleAndPersist(
     reference,
     referenceAlreadyReversed,
     now: options.now,
+    policy: options.policy,
   });
 
   if (options.isNew) await repos.transactions.insert(tx, { correlationId: options.correlationId });
@@ -87,7 +91,8 @@ export async function settleAndPersist(
       events.push(WagerTransactionRejected.from(tx, ctx));
       break;
     case "PENDING_REFERENCE":
-      events.push(WagerTransactionPendingReference.from(tx, ctx));
+      // Só na entrada em espera; as reavaliações do worker não geram um evento por tentativa.
+      if (options.isNew) events.push(WagerTransactionPendingReference.from(tx, ctx));
       break;
   }
 

@@ -18,7 +18,8 @@
     "db:status": "bun run scripts/migrate.ts status",
     "db:reset": "bun run scripts/migrate.ts reset",
     "app:up": "docker compose --profile app up -d --build",
-    "app:down": "docker compose --profile app down"
+    "app:down": "docker compose --profile app down",
+    "sqs:send": "bun run scripts/send-wager-message.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3",

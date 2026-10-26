@@ -15,6 +15,11 @@ import { createOrmConfig } from "./infrastructure/persistence/mikro-orm.config";
 import { MikroOrmReadRepositories, MikroOrmUnitOfWork } from "./infrastructure/persistence/mikro-orm-unit-of-work";
 import { ORM } from "./infrastructure/persistence/tokens";
 import { SQS_CLIENT, createSqsClient } from "./infrastructure/sqs/sqs-client";
+import { SqsEventPublisher } from "./infrastructure/sqs/sqs-event-publisher";
+import { WagerTransactionConsumer } from "./interfaces/sqs/wager-transaction-consumer";
+import { WorkersLifecycle } from "./interfaces/workers/workers.lifecycle";
+import { OutboxRelay } from "./wagering/application/outbox-relay";
+import { ProcessPendingReferences } from "./wagering/application/process-pending-references";
 import { OperationsController, WageringController, WalletsController } from "./interfaces/http/controllers";
 import { HttpErrorFilter } from "./interfaces/http/http-error.filter";
 import { ProviderAuthGuard } from "./interfaces/http/provider-auth.guard";
@@ -87,6 +92,32 @@ export class AppModule {
             new WalletQueries(read, uow, m, l),
           inject: [READ_REPOSITORIES, UNIT_OF_WORK, WAGERING_METRICS, LOGGER],
         },
+        {
+          provide: WagerTransactionConsumer,
+          useFactory: (sqs: SQSClient, submit: SubmitWagerTransaction, m: WageringMetrics, l: Logger) =>
+            new WagerTransactionConsumer(sqs, submit, m, l, {
+              queueUrl: config.sqs.transactionsQueueUrl,
+              dlqUrl: config.sqs.dlqUrl,
+              maxReceiveCount: config.sqs.maxReceiveCount,
+              waitTimeSeconds: config.sqs.waitTimeSeconds,
+              visibilityTimeoutSeconds: config.sqs.visibilityTimeoutSeconds,
+            }),
+          inject: [SQS_CLIENT, SubmitWagerTransaction, WAGERING_METRICS, LOGGER],
+        },
+        {
+          provide: ProcessPendingReferences,
+          useFactory: (uow: UnitOfWork, m: WageringMetrics, l: Logger) => new ProcessPendingReferences(uow, m, l),
+          inject: [UNIT_OF_WORK, WAGERING_METRICS, LOGGER],
+        },
+        {
+          provide: OutboxRelay,
+          useFactory: (uow: UnitOfWork, sqs: SQSClient, m: WageringMetrics, l: Logger) =>
+            new OutboxRelay(uow, new SqsEventPublisher(sqs, config.sqs.eventsQueueUrl), m, l, {
+              workerId: config.instanceId,
+            }),
+          inject: [UNIT_OF_WORK, SQS_CLIENT, WAGERING_METRICS, LOGGER],
+        },
+        WorkersLifecycle,
         ResourceLifecycle,
         { provide: APP_GUARD, useClass: ProviderAuthGuard },
         { provide: APP_FILTER, useClass: HttpErrorFilter },

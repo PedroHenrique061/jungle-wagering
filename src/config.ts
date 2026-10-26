@@ -13,7 +13,13 @@ export interface AppConfig {
   };
   sqs: {
     transactionsQueueUrl: string;
+    /** DLQ da fila de entrada: destino explícito de mensagens com erro permanente. */
+    dlqUrl: string;
     eventsQueueUrl: string;
+    /** Deve ser igual ao maxReceiveCount da redrive policy (infra/localstack/init-sqs.sh). */
+    maxReceiveCount: number;
+    waitTimeSeconds: number;
+    visibilityTimeoutSeconds: number;
   };
   /** Papéis desta instância. Por padrão todas fazem tudo; em produção podem ser separados. */
   roles: {
@@ -46,7 +52,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, overrides: Part
     },
     sqs: {
       transactionsQueueUrl: required("SQS_TRANSACTIONS_QUEUE_URL"),
+      dlqUrl:
+        env.SQS_TRANSACTIONS_DLQ_URL ??
+        required("SQS_TRANSACTIONS_QUEUE_URL").replace(/\.fifo$/, "-dlq.fifo"),
       eventsQueueUrl: required("SQS_EVENTS_QUEUE_URL"),
+      maxReceiveCount: Number(env.SQS_MAX_RECEIVE_COUNT ?? 5),
+      waitTimeSeconds: Number(env.SQS_WAIT_TIME_SECONDS ?? 10),
+      visibilityTimeoutSeconds: Number(env.SQS_VISIBILITY_TIMEOUT_SECONDS ?? 30),
     },
     roles: {
       http: true,
