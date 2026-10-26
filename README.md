@@ -53,7 +53,7 @@ Para rodar uma única instância fora do Docker (com hot reload): `bun run dev`.
 | `bun run dev` / `start` | Uma instância local (com/sem watch) |
 | `bun run sqs:send <walletId> <playerId> <kind> <amount> [ref] [externalId]` | Publica uma `WagerTransactionRequested` na fila |
 | `bun run test` | 119 testes unitários do domínio (sem infraestrutura) |
-| `bun run test:integration` | 68 testes de integração (exige `infra:up`) |
+| `bun run test:integration` | 70 testes de integração (exige `infra:up`) |
 | `bun run test:concurrency` | 8 testes de concorrência (exige `infra:up`) |
 | `bun run typecheck` | `tsc --noEmit` em modo estrito |
 

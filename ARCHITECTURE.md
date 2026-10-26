@@ -336,7 +336,7 @@ Mais as métricas padrão de processo do `prom-client`.
 **Decisão: não implementar neste desafio.** Autenticação não pontua (seção 2 do desafio) e competiria em tempo com correção, concorrência e idempotência. O ponto de extensão está no código:
 
 - `ProviderIdentityPort.resolve(authorizationHeader) → ProviderIdentity { providerId, scopes }`;
-- `ProviderAuthGuard`, guard global hoje **no-op**;
+- `ProviderAuthGuard`, guard global: sem um `ProviderIdentityPort` registrado (o caso atual) ele libera tudo; com um registrado, recusa quando o token não resolve uma identidade;
 - `@Public()` em `/health/*` e `/metrics`, que ficam abertos mesmo com a autenticação ativa.
 
 **Desenho que eu adotaria:** um IdP externo (Keycloak) com **client credentials** OIDC, um client por provedor de jogos.
@@ -350,12 +350,12 @@ Nada de tabela própria de usuários ou hash de senha. Mensagens da fila são ca
 
 ## 17. Estratégia de testes
 
-**195 testes, nenhum com PostgreSQL ou SQS mockado.**
+**197 testes, nenhum com PostgreSQL ou SQS mockado.**
 
 | Suíte | Qtde | Escopo |
 | --- | --- | --- |
 | `tests/unit` | 119 | `Money` (escala, entradas inválidas, conflito de moeda), invariantes da `Wallet`, ledger, máquina de estados, todas as regras de `BET`/`WIN`/`LOSS`/`REFUND`/`ROLLBACK`, hash e conflito de idempotência, eventos |
-| `tests/integration` | 68 | **Schema:** cada constraint e trigger do §10, migrations reversíveis. **API:** todos os endpoints e status. **Mensageria:** consumidor, inbox, redelivery, DLQ, retry, shutdown, outbox e worker |
+| `tests/integration` | 70 | **Schema:** cada constraint e trigger do §10, migrations reversíveis. **Atomicidade:** falha antes do COMMIT não deixa saldo, transação, lançamento, inbox nem outbox. **API:** todos os endpoints e status. **Mensageria:** consumidor, inbox, redelivery, DLQ, retry, shutdown, outbox e worker |
 | `tests/concurrency` | 8 | Paralelismo real: 3 instâncias no mesmo processo (pools separados) e 3 **processos** `bun run src/main.ts` |
 
 Cada arquivo cria o próprio banco (`wagering_test_<nome>`), migrado com as migrations de produção, e as próprias filas FIFO no LocalStack. Os testes são isolados entre si e das réplicas do Docker.
